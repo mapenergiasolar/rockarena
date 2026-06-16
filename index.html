@@ -1,4 +1,3 @@
-ll
 <!DOCTYPE html>
 <html lang="pt-BR">
 
@@ -67,7 +66,49 @@ ll
             </div>
         </section>
 
-        <!-- SCREEN 2: CLASS SELECTION -->
+        <!-- SCREEN 2: SONG SELECTION -->
+        <section id="song-screen" class="hidden-screen">
+            <div class="song-selection-container">
+                <h2 class="section-title">ESCOLHA A MÚSICA</h2>
+                <p class="section-subtitle">Selecione uma faixa para tocar com sua banda</p>
+                
+                <div class="song-cards">
+                    <!-- Song 1: Ride Like The Wind -->
+                    <div class="song-card glass-card ripple-effect" data-song="song1" id="card-song-song1">
+                        <div class="song-badge badge-dps">125 BPM</div>
+                        <h3 class="song-title">Ride Like The Wind</h3>
+                        <p class="song-artist">Jorn</p>
+                        <p class="song-desc">Power rock clássico e veloz. Perfeito para guitarras e baterias marcadas.</p>
+                        <div class="song-difficulty">Dificuldade: <span style="color: var(--neon-green)">Fácil</span></div>
+                    </div>
+                    
+                    <!-- Song 2: Californication -->
+                    <div class="song-card glass-card ripple-effect" data-song="song2" id="card-song-song2">
+                        <div class="song-badge badge-defense">96 BPM</div>
+                        <h3 class="song-title">Californication</h3>
+                        <p class="song-artist">Red Hot Chili Peppers</p>
+                        <p class="song-desc">Groove alternado de baixo melódico e riffs limpos. Foco na precisão rítmica.</p>
+                        <div class="song-difficulty">Dificuldade: <span style="color: var(--neon-yellow)">Médio</span></div>
+                    </div>
+                    
+                    <!-- Song 3: Hellraiser -->
+                    <div class="song-card glass-card ripple-effect" data-song="song3" id="card-song-song3">
+                        <div class="song-badge badge-energy">137 BPM</div>
+                        <h3 class="song-title">Hellraiser</h3>
+                        <p class="song-artist">Ozzy Osbourne</p>
+                        <p class="song-desc">Rápido e agressivo. Heavy metal puro com bumbos rápidos e solos insanos.</p>
+                        <div class="song-difficulty">Dificuldade: <span style="color: var(--neon-red)">Difícil</span></div>
+                    </div>
+                </div>
+                
+                <div class="actions-row">
+                    <button id="btn-back-to-menu-song" class="btn btn-secondary">&larr; VOLTAR</button>
+                    <button id="btn-confirm-song" class="btn btn-primary btn-glow" disabled>SELECIONAR INSTRUMENTO &rarr;</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- SCREEN 3: CLASS SELECTION -->
         <section id="class-screen" class="hidden-screen">
             <div class="class-selection-container">
                 <h2 class="section-title">ESCOLHA SEU INSTRUMENTO</h2>
@@ -206,7 +247,7 @@ ll
 
                         <!-- Hit Target line at the bottom -->
                         <div class="hit-targets-line">
-                            <div class="hit-target red-glow" id="target-0">
+                            <div class="hit-target green-glow" id="target-0">
                                 <span class="key-hint">A</span>
                                 <div class="target-flash"></div>
                             </div>
@@ -214,15 +255,15 @@ ll
                                 <span class="key-hint">S</span>
                                 <div class="target-flash"></div>
                             </div>
-                            <div class="hit-target orange-glow" id="target-2">
+                            <div class="hit-target red-glow" id="target-2">
                                 <span class="key-hint">D</span>
                                 <div class="target-flash"></div>
                             </div>
-                            <div class="hit-target green-glow" id="target-3">
+                            <div class="hit-target blue-glow" id="target-3">
                                 <span class="key-hint">K</span>
                                 <div class="target-flash"></div>
                             </div>
-                            <div class="hit-target blue-glow" id="target-4">
+                            <div class="hit-target orange-glow" id="target-4">
                                 <span class="key-hint">L</span>
                                 <div class="target-flash"></div>
                             </div>
@@ -277,10 +318,10 @@ ll
             </div>
         </section>
 
-        <!-- CALIBRATION MODAL -->
+        <!-- CALIBRATION & SETTINGS MODAL -->
         <div id="calibration-modal" class="modal-overlay hidden-screen">
             <div class="modal-content glass-card">
-                <h3>Calibração de Atraso (Lag)</h3>
+                <h3>Configurações do Jogo</h3>
                 <p>Se as notas parecerem fora de sincronia com a música, ajuste a calibração:</p>
 
                 <div class="calibration-slider-group">
@@ -292,6 +333,28 @@ ll
                     CLIQUE NO RITMO DA BATIDA
                 </div>
                 <div class="calibration-hint">Toque na barra acima no ritmo para autocalibração.</div>
+
+                <div class="keybinding-section">
+                    <h4>Mapeamento de Teclas</h4>
+                    <p>Clique em uma faixa para remapear sua tecla:</p>
+                    <div class="keybind-buttons">
+                        <button class="keybind-btn" data-lane="0" style="border-color: var(--neon-green); color: var(--neon-green)">
+                            <span>Verde</span> <strong class="bind-value" id="bind-0">A</strong>
+                        </button>
+                        <button class="keybind-btn" data-lane="1" style="border-color: var(--neon-yellow); color: var(--neon-yellow)">
+                            <span>Amarelo</span> <strong class="bind-value" id="bind-1">S</strong>
+                        </button>
+                        <button class="keybind-btn" data-lane="2" style="border-color: var(--neon-red); color: var(--neon-red)">
+                            <span>Vermelho</span> <strong class="bind-value" id="bind-2">D</strong>
+                        </button>
+                        <button class="keybind-btn" data-lane="3" style="border-color: var(--neon-blue); color: var(--neon-blue)">
+                            <span>Azul</span> <strong class="bind-value" id="bind-3">K</strong>
+                        </button>
+                        <button class="keybind-btn" data-lane="4" style="border-color: var(--neon-orange); color: var(--neon-orange)">
+                            <span>Laranja</span> <strong class="bind-value" id="bind-4">L</strong>
+                        </button>
+                    </div>
+                </div>
 
                 <button id="btn-close-calibration" class="btn btn-primary">SALVAR E FECHAR</button>
             </div>

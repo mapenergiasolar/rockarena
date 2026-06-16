@@ -16,11 +16,19 @@ const GAME_CFG = {
     maxTugValue: 100, // 0 is Full Player, 100 is Full Rival, 50 is Neutral
 };
 
+const SONGS_DATABASE = {
+    song1: { id: 'song1', title: "Ride Like The Wind", artist: "Jorn", file: "song.mp3", bpm: 125, difficulty: "Fácil" },
+    song2: { id: 'song2', title: "Californication", artist: "Red Hot Chili Peppers", file: "song2.mp3", bpm: 96, difficulty: "Médio" },
+    song3: { id: 'song3', title: "Hellraiser", artist: "Ozzy Osbourne", file: "song3.mp3", bpm: 137, difficulty: "Difícil" }
+};
+
 const state = {
     currentScreen: 'menu-screen',
+    selectedSong: null,
     selectedClass: null,
     inputMode: 'keyboard', // 'keyboard' or 'gamepad'
     audioOffset: 0, // ms, for lag calibration
+    waitingForKeyForLane: null, // index of lane waiting for rebind
     
     // Gameplay Stats
     playerScore: 0,
@@ -60,6 +68,7 @@ const state = {
 // UI Elements
 const els = {
     menuScreen: document.getElementById('menu-screen'),
+    songScreen: document.getElementById('song-screen'),
     classScreen: document.getElementById('class-screen'),
     gameScreen: document.getElementById('game-screen'),
     resultsScreen: document.getElementById('results-screen'),
@@ -111,16 +120,20 @@ const els = {
     ctx: document.getElementById('rhythm-canvas').getContext('2d'),
     
     // Class Cards
-    classCards: document.querySelectorAll('.class-card')
+    classCards: document.querySelectorAll('.class-card'),
+    songCards: document.querySelectorAll('.song-card'),
+    btnConfirmSong: document.getElementById('btn-confirm-song'),
+    btnBackToMenuSong: document.getElementById('btn-back-to-menu-song'),
+    keybindBtns: document.querySelectorAll('.keybind-btn')
 };
 
 // Lane configurations for key bindings and drawing
 const laneKeys = {
-    0: { key: 'a', color: '#ff3366', targetEl: document.getElementById('target-0') },
+    0: { key: 'a', color: '#33ff66', targetEl: document.getElementById('target-0') },
     1: { key: 's', color: '#ffcc00', targetEl: document.getElementById('target-1') },
-    2: { key: 'd', color: '#ff7700', targetEl: document.getElementById('target-2') },
-    3: { key: 'k', color: '#33ff66', targetEl: document.getElementById('target-3') },
-    4: { key: 'l', color: '#00ccff', targetEl: document.getElementById('target-4') }
+    2: { key: 'd', color: '#ff3366', targetEl: document.getElementById('target-2') },
+    3: { key: 'k', color: '#00ccff', targetEl: document.getElementById('target-3') },
+    4: { key: 'l', color: '#ff7700', targetEl: document.getElementById('target-4') }
 };
 
 // Gamepad button map (Standard gamepad)
@@ -150,107 +163,225 @@ function varColor(cssVarName) {
 // ----------------------------------------------------
 function generateClassChart(classType) {
     const chart = [];
-    const beatInterval = 60 / GAME_CFG.bpm; // 0.5s for 120bpm
-    const totalDuration = 180; // support up to 3 minutes
     
-    let time = 3.0; // Start notes after 3 seconds of intro
+    // Fallback if no song selected (default to song1)
+    const songId = state.selectedSong || 'song1';
+    const song = SONGS_DATABASE[songId];
     
-    if (classType === 'solo') {
-        // Solo Guitar: fast, intense runs and solo clusters
-        while (time < totalDuration - 2) {
-            const isSoloSection = (Math.floor(time / 12) % 3 === 0); // solo segments
-            
-            if (isSoloSection) {
-                const count = 6 + Math.floor(Math.random() * 4);
-                let lane = Math.floor(Math.random() * 5);
-                for (let i = 0; i < count; i++) {
-                    chart.push({ time: time, lane: lane, hit: false, missed: false });
-                    time += beatInterval / 3; // fast 12th/16th notes
-                    lane = (lane + (Math.random() > 0.5 ? 1 : -1) + 5) % 5;
-                }
-                // End the solo run with a long bend sustain note!
-                chart.push({ time: time, lane: lane, duration: 1.2, hit: false, missed: false });
-                time += beatInterval * 2.5;
-            } else {
-                chart.push({ time: time, lane: Math.floor(Math.random() * 5), hit: false, missed: false });
-                // 20% chance of a short vibrato sustain note
-                if (Math.random() < 0.2) {
-                    chart.push({ time: time + beatInterval, lane: Math.floor(Math.random() * 5), duration: 0.8, hit: false, missed: false });
-                    time += beatInterval * 2.5;
+    const beatInterval = 60 / song.bpm; // e.g. 0.5s for 120bpm
+    const totalDuration = 180; // up to 3 minutes
+    
+    let time = 3.0; // start after 3s
+    
+    // Californication (BPM 96)
+    if (songId === 'song2') {
+        if (classType === 'bass') {
+            // Californication Bass: Flea's iconic alternating intro/verse riff
+            while (time < totalDuration - 2) {
+                const section = Math.floor(time / 15); // sections of 15s
+                
+                if (section % 4 === 2) {
+                    // Chorus (active/heavy)
+                    chart.push({ time: time, lane: 0, hit: false, missed: false });
+                    chart.push({ time: time + beatInterval * 0.5, lane: 2, hit: false, missed: false });
+                    chart.push({ time: time + beatInterval, lane: 1, hit: false, missed: false });
+                    chart.push({ time: time + beatInterval * 1.5, lane: 2, hit: false, missed: false });
+                    time += beatInterval * 2;
                 } else {
+                    // Intro/Verse: steady alternating syncopated groove
+                    chart.push({ time: time, lane: 0, hit: false, missed: false }); // A
+                    chart.push({ time: time + beatInterval * 0.75, lane: 1, hit: false, missed: false }); // S (syncopated eighth)
+                    chart.push({ time: time + beatInterval * 1.5, lane: 0, hit: false, missed: false }); // A
+                    chart.push({ time: time + beatInterval * 2.25, lane: 1, hit: false, missed: false }); // S
+                    time += beatInterval * 3;
+                }
+            }
+        } else if (classType === 'solo') {
+            // Californication Solo Guitar: melodic and sparse, with slow sustains in the solo bridge
+            while (time < totalDuration - 2) {
+                const section = Math.floor(time / 15);
+                const isSoloBridge = (section === 5 || section === 6); // solo bridge section (75s - 105s)
+                
+                if (isSoloBridge) {
+                    // Slow bends / vibrates with sustain!
+                    chart.push({ time: time, lane: 2, duration: 1.5, hit: false, missed: false });
+                    chart.push({ time: time + beatInterval * 3, lane: 3, duration: 1.0, hit: false, missed: false });
+                    chart.push({ time: time + beatInterval * 5, lane: 4, duration: 1.5, hit: false, missed: false });
+                    time += beatInterval * 8;
+                } else {
+                    // Regular verse/intro: sparse notes (clean guitar fills)
                     if (Math.random() < 0.4) {
+                        chart.push({ time: time, lane: 3, hit: false, missed: false });
+                    }
+                    time += beatInterval * 4;
+                }
+            }
+        } else if (classType === 'rhythm') {
+            // Californication Rhythm Guitar: chords marked on downbeats
+            while (time < totalDuration - 2) {
+                const section = Math.floor(time / 15);
+                const isVerse = (section % 4 === 1 || section % 4 === 3);
+                const isChorus = (section % 4 === 2);
+                
+                if (isChorus) {
+                    // Full strumming chords on every beat
+                    chart.push({ time: time, lane: 1, hit: false, missed: false });
+                    chart.push({ time: time, lane: 3, hit: false, missed: false });
+                    time += beatInterval;
+                } else if (isVerse) {
+                    // Chord on beat 1 of every 2 measures
+                    chart.push({ time: time, lane: 1, duration: 1.5, hit: false, missed: false });
+                    chart.push({ time: time, lane: 4, duration: 1.5, hit: false, missed: false });
+                    time += beatInterval * 4;
+                } else {
+                    time += beatInterval * 2;
+                }
+            }
+        } else if (classType === 'drums') {
+            // Californication Drums: steady standard rock groove
+            while (time < totalDuration - 2) {
+                const beatNum = Math.floor(time / beatInterval);
+                
+                // Kick on 1
+                if (beatNum % 2 === 0) {
+                    chart.push({ time: time, lane: 0, hit: false, missed: false });
+                }
+                // Snare on 2
+                if (beatNum % 2 === 1) {
+                    chart.push({ time: time, lane: 2, hit: false, missed: false });
+                }
+                // Steady hihat
+                chart.push({ time: time, lane: 3, hit: false, missed: false });
+                chart.push({ time: time + beatInterval / 2, lane: 3, hit: false, missed: false });
+                
+                time += beatInterval;
+            }
+        }
+    }
+    // Hellraiser (BPM 137)
+    else if (songId === 'song3') {
+        if (classType === 'solo') {
+            // Hellraiser Solo Guitar: fast metal shred scale runs
+            while (time < totalDuration - 2) {
+                const section = Math.floor(time / 15);
+                const isSoloSection = (section === 4 || section === 5 || section === 8); // solo sections
+                
+                if (isSoloSection) {
+                    // Aggressive scale descents / ascents
+                    const count = 8;
+                    for (let i = 0; i < count; i++) {
+                        chart.push({ time: time + (i * beatInterval / 4), lane: i % 5, hit: false, missed: false });
+                    }
+                    // Final sustain bend
+                    chart.push({ time: time + (count * beatInterval / 4), lane: 4, duration: 1.2, hit: false, missed: false });
+                    time += beatInterval * 6;
+                } else {
+                    // Fast rock riffs
+                    chart.push({ time: time, lane: Math.floor(Math.random() * 5), hit: false, missed: false });
+                    if (Math.random() < 0.5) {
                         chart.push({ time: time + beatInterval / 2, lane: Math.floor(Math.random() * 5), hit: false, missed: false });
                     }
                     time += beatInterval;
                 }
             }
-        }
-    } else if (classType === 'rhythm') {
-        // Rhythm Guitar: chords (double notes) on downbeats
-        while (time < totalDuration - 2) {
-            const lane1 = Math.floor(Math.random() * 2);
-            const lane2 = 3 + Math.floor(Math.random() * 2);
-            
-            // Sustain chords! 30% chance
-            const isSustain = Math.random() < 0.3;
-            const duration = isSustain ? 1.0 + Math.random() * 1.0 : 0;
-            
-            chart.push({ time: time, lane: lane1, duration: duration, hit: false, missed: false });
-            chart.push({ time: time, lane: lane2, duration: duration, hit: false, missed: false });
-            
-            if (isSustain) {
-                time += beatInterval * 3;
-            } else {
-                if (Math.random() < 0.5) {
-                    chart.push({ time: time + beatInterval / 2, lane: Math.floor(Math.random() * 5), hit: false, missed: false });
+        } else if (classType === 'rhythm') {
+            // Hellraiser Rhythm Guitar: heavy repeating power metal chords on the beat
+            while (time < totalDuration - 2) {
+                chart.push({ time: time, lane: 1, hit: false, missed: false });
+                chart.push({ time: time, lane: 2, hit: false, missed: false });
+                
+                if (Math.random() < 0.3) {
+                    // Fast double hit
+                    chart.push({ time: time + beatInterval / 2, lane: 1, hit: false, missed: false });
+                    chart.push({ time: time + beatInterval / 2, lane: 2, hit: false, missed: false });
                 }
-                time += beatInterval * (Math.random() > 0.8 ? 2 : 1);
+                time += beatInterval;
             }
-        }
-    } else if (classType === 'bass') {
-        // Bass: steady slow notes on low lanes (0 and 1)
-        let activeLane = 0;
-        while (time < totalDuration - 2) {
-            // 40% chance of a long groove sustain note
-            const isSustain = Math.random() < 0.4;
-            const duration = isSustain ? 0.8 + Math.random() * 0.8 : 0;
-            
-            chart.push({ time: time, lane: activeLane, duration: duration, hit: false, missed: false });
-            activeLane = activeLane === 0 ? 1 : (Math.random() > 0.8 ? 0 : activeLane);
-            
-            if (isSustain) {
-                time += beatInterval * 3;
-            } else {
-                time += Math.random() > 0.6 ? beatInterval * 2 : beatInterval;
-            }
-        }
-    } else if (classType === 'drums') {
-        // Drums: Kick (0), Snare (1/2), Hihat (3), Crash (4)
-        while (time < totalDuration - 2) {
-            const beatNum = Math.floor(time / beatInterval);
-            
-            // Kick on 1 and 3
-            if (beatNum % 2 === 0) {
+        } else if (classType === 'bass') {
+            // Hellraiser Bass: fast pumping eighth notes
+            while (time < totalDuration - 2) {
                 chart.push({ time: time, lane: 0, hit: false, missed: false });
+                chart.push({ time: time + beatInterval / 2, lane: 1, hit: false, missed: false });
+                time += beatInterval;
             }
-            // Snare on 2 and 4
-            if (beatNum % 2 === 1) {
-                chart.push({ time: time, lane: Math.random() > 0.5 ? 1 : 2, hit: false, missed: false });
+        } else if (classType === 'drums') {
+            // Hellraiser Drums: fast metal double bass beat
+            while (time < totalDuration - 2) {
+                const beatNum = Math.floor(time / beatInterval);
+                
+                // Double bass bumbo
+                chart.push({ time: time, lane: 0, hit: false, missed: false });
+                chart.push({ time: time + beatInterval / 2, lane: 0, hit: false, missed: false });
+                
+                // Snare on beat 2
+                if (beatNum % 2 === 1) {
+                    chart.push({ time: time, lane: 2, hit: false, missed: false });
+                }
+                
+                // Ride hihat
+                chart.push({ time: time, lane: 3, hit: false, missed: false });
+                
+                // Crash on lane 4 every 4 beats
+                if (beatNum % 4 === 0) {
+                    chart.push({ time: time, lane: 4, hit: false, missed: false });
+                }
+                time += beatInterval;
             }
-            // Steady hihat (every half beat) on lane 3
-            chart.push({ time: time, lane: 3, hit: false, missed: false });
-            chart.push({ time: time + beatInterval / 2, lane: 3, hit: false, missed: false });
-            
-            // Crash cymbal on beat 8 on lane 4
-            if (beatNum % 8 === 0) {
-                chart.push({ time: time, lane: 4, hit: false, missed: false });
+        }
+    }
+    // Ride Like The Wind (BPM 125)
+    else {
+        // General rock patterns for Jorn's track
+        if (classType === 'solo') {
+            while (time < totalDuration - 2) {
+                const isSolo = (Math.floor(time / 10) % 3 === 0);
+                if (isSolo) {
+                    let lane = 0;
+                    for (let i = 0; i < 6; i++) {
+                        chart.push({ time: time + i * beatInterval / 2, lane: lane, hit: false, missed: false });
+                        lane = (lane + 1) % 5;
+                    }
+                    time += beatInterval * 4;
+                } else {
+                    chart.push({ time: time, lane: Math.floor(Math.random() * 5), hit: false, missed: false });
+                    if (Math.random() < 0.3) {
+                        chart.push({ time: time + beatInterval / 2, lane: Math.floor(Math.random() * 5), hit: false, missed: false });
+                    }
+                    time += beatInterval;
+                }
             }
-            
-            time += beatInterval;
+        } else if (classType === 'rhythm') {
+            while (time < totalDuration - 2) {
+                chart.push({ time: time, lane: 1, hit: false, missed: false });
+                chart.push({ time: time, lane: 3, hit: false, missed: false });
+                if (Math.random() < 0.4) {
+                    chart.push({ time: time + beatInterval / 2, lane: 2, hit: false, missed: false });
+                }
+                time += beatInterval * (Math.random() > 0.7 ? 2 : 1);
+            }
+        } else if (classType === 'bass') {
+            let lane = 0;
+            while (time < totalDuration - 2) {
+                chart.push({ time: time, lane: lane, hit: false, missed: false });
+                lane = lane === 0 ? 1 : 0;
+                time += beatInterval;
+            }
+        } else if (classType === 'drums') {
+            while (time < totalDuration - 2) {
+                const beatNum = Math.floor(time / beatInterval);
+                if (beatNum % 2 === 0) {
+                    chart.push({ time: time, lane: 0, hit: false, missed: false });
+                } else {
+                    chart.push({ time: time, lane: 1, hit: false, missed: false });
+                }
+                chart.push({ time: time, lane: 3, hit: false, missed: false });
+                chart.push({ time: time + beatInterval / 2, lane: 3, hit: false, missed: false });
+                time += beatInterval;
+            }
         }
     }
     
-    // Sort notes by timestamp
+    // Sort and return
     chart.sort((a, b) => a.time - b.time);
     state.totalNotes = chart.length;
     return chart;
@@ -264,15 +395,18 @@ function showScreen(screenId) {
     
     // Toggle active states
     els.menuScreen.className = screenId === 'menu-screen' ? 'active-screen' : 'hidden-screen';
+    els.songScreen.className = screenId === 'song-screen' ? 'active-screen' : 'hidden-screen';
     els.classScreen.className = screenId === 'class-screen' ? 'active-screen' : 'hidden-screen';
     els.gameScreen.className = screenId === 'game-screen' ? 'active-screen' : 'hidden-screen';
     els.resultsScreen.className = screenId === 'results-screen' ? 'active-screen' : 'hidden-screen';
 
     // Handle background cinematic videos depending on the screen
-    if (screenId === 'menu-screen') {
-        els.bgVideo.src = "Game_trailer_intro_stadium_202606151550.mp4";
-        els.bgVideo.load();
-        els.bgVideo.play().catch(e => console.log("Autoplay blocked: user must click first."));
+    if (screenId === 'menu-screen' || screenId === 'song-screen') {
+        if (!els.bgVideo.src.includes("Game_trailer_intro_stadium_202606151550.mp4")) {
+            els.bgVideo.src = "Game_trailer_intro_stadium_202606151550.mp4";
+            els.bgVideo.load();
+            els.bgVideo.play().catch(e => console.log("Autoplay blocked: user must click first."));
+        }
     } else if (screenId === 'game-screen') {
         let videoSrc = "Rocker_shreds_guitar_solo_stage_202606151550.mp4";
         if (state.selectedClass === 'solo') videoSrc = "guitar.mp4";
@@ -394,8 +528,12 @@ function startGameplay() {
     state.particles = [];
     
     // Configure audio source
-    els.gameAudio.src = "song.mp3";
+    const songData = SONGS_DATABASE[state.selectedSong || 'song1'];
+    els.gameAudio.src = songData.file;
     els.gameAudio.volume = 0.8;
+    
+    // Dynamically adjust global BPM configuration to match the song
+    GAME_CFG.bpm = songData.bpm;
     
     // Configure background video (looping, muted for autoplay compliance)
     els.bgVideo.muted = true;
@@ -414,12 +552,12 @@ function startGameplay() {
     // Play audio element (bypasses autoplay lock since CONFIRMAR CLASSE is a click gesture)
     els.gameAudio.play()
         .then(() => {
-            console.log("song.mp3 carregada e tocando com sucesso!");
+            console.log(`${songData.file} carregada e tocando com sucesso!`);
             state.isLoopRunning = true;
             rhythmLoop();
         })
         .catch(err => {
-            console.warn("song.mp3 não encontrada ou autoplay bloqueado. Usando fallback de áudio do vídeo...");
+            console.warn(`${songData.file} não encontrada ou autoplay bloqueado. Usando fallback de áudio do vídeo...`);
             // Fallback: load video file directly as the audio source
             let videoSrc = "Rocker_shreds_guitar_solo_stage_202606151550.mp4";
             if (state.selectedClass === 'solo') videoSrc = "guitar.mp4";
@@ -707,6 +845,43 @@ function triggerSpecialSkill() {
 
 // Keyboard Listeners
 window.addEventListener('keydown', (e) => {
+    // Check if we are waiting to map a key for a lane
+    if (state.waitingForKeyForLane !== null) {
+        e.preventDefault();
+        const key = e.key.toLowerCase();
+        
+        // Prevent system/reserved keys
+        if (key === 'escape' || key === ' ' || key === 'enter') {
+            alert('Esta tecla é reservada para funções do sistema!');
+            state.waitingForKeyForLane = null;
+            updateKeybindingsUI();
+            return;
+        }
+        
+        const lane = state.waitingForKeyForLane;
+        
+        // Prevent duplicate mapping
+        let alreadyBound = false;
+        for (let i = 0; i < 5; i++) {
+            if (i !== lane && laneKeys[i].key === key) {
+                alreadyBound = true;
+            }
+        }
+        if (alreadyBound) {
+            alert(`A tecla '${key.toUpperCase()}' já está mapeada para outra faixa!`);
+            state.waitingForKeyForLane = null;
+            updateKeybindingsUI();
+            return;
+        }
+        
+        // Assign new key, persist, and update UI
+        laneKeys[lane].key = key;
+        localStorage.setItem(`rockarena_key_${lane}`, key);
+        updateKeybindingsUI();
+        state.waitingForKeyForLane = null;
+        return;
+    }
+
     if (state.currentScreen !== 'game-screen' || e.repeat) return;
     
     const key = e.key.toLowerCase();
@@ -1118,8 +1293,64 @@ function endGame() {
 }
 
 // ----------------------------------------------------
+// KEYBOARD REBINDING LOGIC
+// ----------------------------------------------------
+function loadKeybindings() {
+    for (let i = 0; i < 5; i++) {
+        const savedKey = localStorage.getItem(`rockarena_key_${i}`);
+        if (savedKey) {
+            laneKeys[i].key = savedKey;
+        }
+    }
+    updateKeybindingsUI();
+}
+
+function updateKeybindingsUI() {
+    for (let i = 0; i < 5; i++) {
+        const key = laneKeys[i].key.toUpperCase();
+        const bindEl = document.getElementById(`bind-${i}`);
+        if (bindEl) {
+            bindEl.innerText = key;
+        }
+        const targetEl = laneKeys[i].targetEl;
+        if (targetEl) {
+            const hintEl = targetEl.querySelector('.key-hint');
+            if (hintEl) {
+                hintEl.innerText = key;
+            }
+        }
+    }
+}
+
+// ----------------------------------------------------
 // EVENT BINDINGS
 // ----------------------------------------------------
+
+// Keybind Buttons click listeners
+els.keybindBtns.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        
+        // Reset all keybind buttons' visual states and text content
+        els.keybindBtns.forEach(b => {
+            b.classList.remove('waiting');
+            const laneIndex = parseInt(b.getAttribute('data-lane'));
+            const strongEl = b.querySelector('strong');
+            if (strongEl) strongEl.innerText = laneKeys[laneIndex].key.toUpperCase();
+        });
+        
+        const lane = parseInt(btn.getAttribute('data-lane'));
+        state.waitingForKeyForLane = lane;
+        btn.classList.add('waiting');
+        const strongEl = btn.querySelector('strong');
+        if (strongEl) {
+            strongEl.innerText = '...';
+        }
+    });
+});
+
+// Load keybindings on page startup
+loadKeybindings();
 
 // Set screen 1 initial load
 showScreen('menu-screen');
@@ -1140,7 +1371,25 @@ els.inputGpad.addEventListener('click', () => selectInputMode('gamepad'));
 
 // Menu Screen navigation
 els.btnStartGame.addEventListener('click', () => {
+    showScreen('song-screen');
+});
+
+// Song Selection screen navigation
+els.songCards.forEach(card => {
+    card.addEventListener('click', () => {
+        els.songCards.forEach(c => c.classList.remove('selected'));
+        card.classList.add('selected');
+        state.selectedSong = card.getAttribute('data-song');
+        els.btnConfirmSong.removeAttribute('disabled');
+    });
+});
+
+els.btnConfirmSong.addEventListener('click', () => {
     showScreen('class-screen');
+});
+
+els.btnBackToMenuSong.addEventListener('click', () => {
+    showScreen('menu-screen');
 });
 
 els.btnOpenCalibration.addEventListener('click', () => {
@@ -1149,11 +1398,16 @@ els.btnOpenCalibration.addEventListener('click', () => {
 
 els.btnCloseCalibration.addEventListener('click', () => {
     els.calibrationModal.classList.add('hidden-screen');
+    // Cancel any waiting keybinding remapping states
+    if (state.waitingForKeyForLane !== null) {
+        state.waitingForKeyForLane = null;
+        updateKeybindingsUI();
+    }
 });
 
 // Class Selection screen navigation
 els.btnBackToMenu.addEventListener('click', () => {
-    showScreen('menu-screen');
+    showScreen('song-screen');
 });
 
 els.btnConfirmClass.addEventListener('click', () => {
