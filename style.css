@@ -1284,3 +1284,110 @@ kbd {
         font-size: 2.2rem;
     }
 }
+
+/* GAMEPLAY INTRO FADE-IN */
+#game-screen > * {
+    transition: opacity 0.8s ease-in-out;
+}
+#game-screen.intro-active > * {
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+/* GAME START COUNTDOWN NEON POP EFFECT */
+.game-start-countdown {
+    position: absolute;
+    top: 45%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-family: 'Orbitron', sans-serif;
+    font-size: 8rem;
+    font-weight: 900;
+    color: var(--neon-yellow);
+    text-shadow: 0 0 20px var(--neon-yellow), 0 0 40px rgba(255, 204, 0, 0.5);
+    z-index: 99;
+    pointer-events: none;
+    opacity: 0;
+}
+
+.game-start-countdown.pop {
+    animation: countdownPop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+@keyframes countdownPop {
+    0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+    15% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
+    80% { transform: translate(-50%, -50%) scale(1.0); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(0.8); opacity: 0; }
+}
+
+/* DIFFICULTY SELECTOR */
+.difficulty-selection {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    width: 100%;
+    padding: 15px 30px;
+    margin-bottom: 25px;
+}
+
+.diff-title {
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 700;
+    font-size: 0.9rem;
+    letter-spacing: 2px;
+    color: var(--text-secondary);
+}
+
+.diff-buttons {
+    display: flex;
+    gap: 12px;
+}
+
+.diff-btn {
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 700;
+    padding: 8px 18px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all var(--transition-speed);
+}
+
+.diff-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+}
+
+.diff-btn.active[data-difficulty="easy"] {
+    background: rgba(51, 255, 102, 0.15);
+    border-color: var(--neon-green);
+    color: var(--neon-green);
+    box-shadow: 0 0 10px rgba(51, 255, 102, 0.3);
+}
+
+.diff-btn.active[data-difficulty="normal"] {
+    background: rgba(0, 204, 255, 0.15);
+    border-color: var(--neon-blue);
+    color: var(--neon-blue);
+    box-shadow: 0 0 10px var(--neon-blue-glow);
+}
+
+.diff-btn.active[data-difficulty="hard"] {
+    background: rgba(255, 204, 0, 0.15);
+    border-color: var(--neon-yellow);
+    color: var(--neon-yellow);
+    box-shadow: 0 0 10px rgba(255, 204, 0, 0.3);
+}
+
+.diff-btn.active[data-difficulty="expert"] {
+    background: rgba(255, 51, 102, 0.15);
+    border-color: var(--neon-red);
+    color: var(--neon-red);
+    box-shadow: 0 0 10px var(--neon-red-glow);
+}

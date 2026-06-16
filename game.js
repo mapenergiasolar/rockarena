@@ -19,13 +19,14 @@ const GAME_CFG = {
 const SONGS_DATABASE = {
     song1: { id: 'song1', title: "Ride Like The Wind", artist: "Jorn", file: "song.mp3", bpm: 125, difficulty: "Fácil" },
     song2: { id: 'song2', title: "Californication", artist: "Red Hot Chili Peppers", file: "song2.mp3", bpm: 96, difficulty: "Médio" },
-    song3: { id: 'song3', title: "Hellraiser", artist: "Ozzy Osbourne", file: "song3.mp3", bpm: 137, difficulty: "Difícil" }
+    song3: { id: 'song3', title: "Hellraiser", artist: "Ozzy Osbourne", file: "song3.mp3", bpm: 96, difficulty: "Difícil" }
 };
 
 const state = {
     currentScreen: 'menu-screen',
     selectedSong: null,
     selectedClass: null,
+    selectedDifficulty: 'normal',
     inputMode: 'keyboard', // 'keyboard' or 'gamepad'
     audioOffset: 0, // ms, for lag calibration
     waitingForKeyForLane: null, // index of lane waiting for rebind
@@ -114,6 +115,7 @@ const els = {
     rhythmFeedback: document.getElementById('rhythm-feedback'),
     skillOverlay: document.getElementById('skill-activation-overlay'),
     skillBannerText: document.getElementById('skill-banner-text'),
+    gameStartCountdown: document.getElementById('game-start-countdown'),
     
     // Canvas
     canvas: document.getElementById('rhythm-canvas'),
@@ -162,10 +164,67 @@ function varColor(cssVarName) {
 // NOTE GENERATOR & CHART DEFINITIONS (PER INSTRUMENT)
 // ----------------------------------------------------
 function generateClassChart(classType) {
-    const chart = [];
-    
-    // Fallback if no song selected (default to song1)
     const songId = state.selectedSong || 'song1';
+    
+    // Map UI classes to standardized chart instruments
+    const instrumentMap = {
+        'solo': 'lead_guitar',
+        'rhythm': 'rhythm_guitar',
+        'bass': 'bass',
+        'drums': 'drums'
+    };
+    
+    const instrumentId = instrumentMap[classType] || classType;
+    
+    // 1. Check if we have a static chart loaded in SONGS_CHARTS for this song and instrument and selected difficulty
+    const songChart = typeof SONGS_CHARTS !== 'undefined' ? SONGS_CHARTS[songId] : null;
+    const instrumentChart = songChart?.instruments?.[instrumentId];
+    
+    const difficulty = state.selectedDifficulty || 'normal';
+    let chartNotes = null;
+    let loadedDifficulty = difficulty;
+    
+    if (instrumentChart) {
+        if (instrumentChart[difficulty] && Array.isArray(instrumentChart[difficulty].notes)) {
+            chartNotes = instrumentChart[difficulty].notes;
+            loadedDifficulty = difficulty;
+        } else if (instrumentChart['normal'] && Array.isArray(instrumentChart['normal'].notes)) {
+            chartNotes = instrumentChart['normal'].notes;
+            loadedDifficulty = 'normal';
+        } else if (instrumentChart['easy'] && Array.isArray(instrumentChart['easy'].notes)) {
+            chartNotes = instrumentChart['easy'].notes;
+            loadedDifficulty = 'easy';
+        } else if (Array.isArray(instrumentChart.notes)) {
+            chartNotes = instrumentChart.notes;
+            loadedDifficulty = 'normal';
+        }
+    }
+    
+    if (chartNotes) {
+        console.log(`Loaded static chart: ${songId} ${instrumentId} ${loadedDifficulty} ${chartNotes.length}`);
+        
+        // 2. Create deep copy/clone of raw notes
+        const clonedNotes = chartNotes.map(note => ({
+            time: note.time,
+            lane: note.lane,
+            duration: note.duration || 0,
+            type: note.type || "tap",
+            intensity: note.intensity || 0.8,
+            hit: false,       // gameplay status added in runtime
+            missed: false     // gameplay status added in runtime
+        }));
+        
+        // 3. Sort chronologically by time
+        clonedNotes.sort((a, b) => a.time - b.time);
+        
+        state.totalNotes = clonedNotes.length;
+        return clonedNotes;
+    }
+    
+    // 4. Fallback procedimental/aleatório antigo caso não exista chart estruturado
+    console.log(`Usando gerador procedimental (fallback) para ${songId} (${classType})`);
+    
+    const chart = [];
     const song = SONGS_DATABASE[songId];
     
     const beatInterval = 60 / song.bpm; // e.g. 0.5s for 120bpm
@@ -478,6 +537,39 @@ function handleCalibrationTap() {
 }
 
 // ----------------------------------------------------
+// METRONOME SYNTHESIZER (WEB AUDIO API)
+// ----------------------------------------------------
+let audioCtx = null;
+function playMetronomeClick(frequency = 1000, duration = 0.08, volume = 1.0) {
+    try {
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
+        
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        
+        osc.frequency.setValueAtTime(frequency, audioCtx.currentTime);
+        osc.type = 'sine';
+        
+        // Short exponential decay click
+        gain.gain.setValueAtTime(volume, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+        
+        osc.start(audioCtx.currentTime);
+        osc.stop(audioCtx.currentTime + duration);
+    } catch (e) {
+        console.warn("Failed to play metronome click via Web Audio API:", e);
+    }
+}
+
+// ----------------------------------------------------
 // GAME ENGINE & GAME LOOP
 // ----------------------------------------------------
 function setupCanvas() {
@@ -492,6 +584,7 @@ window.addEventListener('resize', setupCanvas);
 
 function startGameplay() {
     showScreen('game-screen');
+    els.gameScreen.classList.add('intro-active');
     setupCanvas();
     
     // Reset Stats
@@ -532,14 +625,8 @@ function startGameplay() {
     els.gameAudio.src = songData.file;
     els.gameAudio.volume = 0.8;
     
-    // Dynamically adjust global BPM configuration to match the song
+        // Dynamically adjust global BPM configuration to match the song
     GAME_CFG.bpm = songData.bpm;
-    
-    // Configure background video (looping, muted for autoplay compliance)
-    els.bgVideo.muted = true;
-    els.bgVideo.currentTime = 0;
-    els.bgVideo.style.opacity = '1';
-    els.bgVideo.play().catch(e => console.log("Vídeo autoplay bloqueado, rodando em background"));
     
     // Preload special video
     els.specialVideo.src = "full band.mp4";
@@ -549,39 +636,101 @@ function startGameplay() {
     els.specialVideo.style.display = 'none';
     els.specialVideo.style.opacity = '0';
     
-    // Play audio element (bypasses autoplay lock since CONFIRMAR CLASSE is a click gesture)
-    els.gameAudio.play()
-        .then(() => {
-            console.log(`${songData.file} carregada e tocando com sucesso!`);
-            state.isLoopRunning = true;
-            rhythmLoop();
-        })
-        .catch(err => {
-            console.warn(`${songData.file} não encontrada ou autoplay bloqueado. Usando fallback de áudio do vídeo...`);
-            // Fallback: load video file directly as the audio source
-            let videoSrc = "Rocker_shreds_guitar_solo_stage_202606151550.mp4";
-            if (state.selectedClass === 'solo') videoSrc = "guitar.mp4";
-            else if (state.selectedClass === 'rhythm') videoSrc = "base guitar.mp4";
-            else if (state.selectedClass === 'bass') videoSrc = "bass.mp4";
-            else if (state.selectedClass === 'drums') videoSrc = "drums.mp4";
+    // Clean up any existing ended listener on bgVideo
+    if (state.introEndedListener) {
+        els.bgVideo.removeEventListener('ended', state.introEndedListener);
+        state.introEndedListener = null;
+    }
+    
+    // Schedule countdown numbers before the first note
+    const firstNote = state.notes.find(n => !n.hit && !n.missed);
+    const firstNoteTime = firstNote ? firstNote.time : 3.0;
+    const beatInterval = 60 / GAME_CFG.bpm;
+    
+    state.metronomeClicks = [
+        firstNoteTime - 4 * beatInterval,
+        firstNoteTime - 3 * beatInterval,
+        firstNoteTime - 2 * beatInterval,
+        firstNoteTime - 1 * beatInterval,
+        firstNoteTime
+    ];
+    state.metronomeClicksPlayed = [false, false, false, false, false];
 
-            els.gameAudio.src = videoSrc;
-            els.gameAudio.load();
-            els.gameAudio.play()
-                .then(() => {
-                    state.isLoopRunning = true;
-                    rhythmLoop();
-                })
-                .catch(fallbackErr => {
-                    console.error("Falha ao tocar fallbacks de áudio. Rodando jogo silencioso.", fallbackErr);
-                    state.isLoopRunning = true;
-                    rhythmLoop();
-                });
-        });
+    // Play intro video clip with audio
+    console.log("Playing intro video: intro.mp4");
+    els.bgVideo.src = "intro.mp4";
+    els.bgVideo.muted = false; // play with sound!
+    els.bgVideo.loop = false;
+    els.bgVideo.currentTime = 0;
+    els.bgVideo.load();
+    
+    const onIntroVideoEnded = () => {
+        console.log("Intro video ended. Starting song and gameplay.");
+        els.bgVideo.removeEventListener('ended', onIntroVideoEnded);
+        state.introEndedListener = null;
+        
+        // Switch to looping instrument video
+        let videoSrc = "Rocker_shreds_guitar_solo_stage_202606151550.mp4";
+        if (state.selectedClass === 'solo') videoSrc = "guitar.mp4";
+        else if (state.selectedClass === 'rhythm') videoSrc = "base guitar.mp4";
+        else if (state.selectedClass === 'bass') videoSrc = "bass.mp4";
+        else if (state.selectedClass === 'drums') videoSrc = "drums.mp4";
+        
+        els.bgVideo.src = videoSrc;
+        els.bgVideo.muted = true;
+        els.bgVideo.loop = true;
+        els.bgVideo.load();
+        els.bgVideo.play().catch(e => console.warn("Muted background video blocked:", e));
+        
+        // Play song audio
+        els.gameAudio.play()
+            .then(() => {
+                console.log(`${songData.file} carregada e tocando com sucesso!`);
+                state.isLoopRunning = true;
+                rhythmLoop();
+            })
+            .catch(err => {
+                console.warn(`${songData.file} autoplay bloqueado. Rodando jogo silencioso...`, err);
+                state.isLoopRunning = true;
+                rhythmLoop();
+            });
+            
+        // Wait about 1 second after starting song before showing HUD and board
+        state.introActiveTimeout = setTimeout(() => {
+            els.gameScreen.classList.remove('intro-active');
+            state.introActiveTimeout = null;
+        }, 1000);
+    };
+    
+    state.introEndedListener = onIntroVideoEnded;
+    els.bgVideo.addEventListener('ended', onIntroVideoEnded);
+    
+    els.bgVideo.play().catch(e => {
+        console.warn("Autoplay blocked intro.mp4. Skipping directly to gameplay.", e);
+        onIntroVideoEnded();
+    });
 }
 
 function stopGameplay() {
     state.isLoopRunning = false;
+    els.gameScreen.classList.remove('intro-active');
+    
+    if (els.gameStartCountdown) {
+        els.gameStartCountdown.innerText = "";
+        els.gameStartCountdown.classList.remove('pop');
+    }
+    
+    if (state.introActiveTimeout) {
+        clearTimeout(state.introActiveTimeout);
+        state.introActiveTimeout = null;
+    }
+    
+    // Clean up ended listener
+    if (state.introEndedListener) {
+        els.bgVideo.removeEventListener('ended', state.introEndedListener);
+        state.introEndedListener = null;
+    }
+    
     els.bgVideo.pause();
     els.specialVideo.pause();
     els.gameAudio.pause();
@@ -602,6 +751,33 @@ function rhythmLoop() {
 function updateGameLogic() {
     // Sincronizar com o timer do reprodutor de áudio principal
     const currentAudioTime = els.gameAudio.currentTime + (state.audioOffset / 1000);
+    // Play visual countdown pop on screen before notes start
+    if (state.metronomeClicks && state.metronomeClicksPlayed) {
+        for (let i = 0; i < state.metronomeClicks.length; i++) {
+            if (!state.metronomeClicksPlayed[i] && currentAudioTime >= state.metronomeClicks[i]) {
+                state.metronomeClicksPlayed[i] = true;
+                
+                if (els.gameStartCountdown) {
+                    els.gameStartCountdown.classList.remove('pop');
+                    void els.gameStartCountdown.offsetWidth; // Trigger reflow to restart CSS animation
+                    
+                    if (i === 4) {
+                        els.gameStartCountdown.innerText = "ROCK!";
+                        els.gameStartCountdown.classList.add('pop');
+                        setTimeout(() => {
+                            if (els.gameStartCountdown.innerText === "ROCK!") {
+                                els.gameStartCountdown.innerText = "";
+                                els.gameStartCountdown.classList.remove('pop');
+                            }
+                        }, 500);
+                    } else {
+                        els.gameStartCountdown.innerText = 4 - i;
+                        els.gameStartCountdown.classList.add('pop');
+                    }
+                }
+            }
+        }
+    }
     
     // Process active holding sustain notes
     for (let lane = 0; lane < 5; lane++) {
@@ -1433,3 +1609,86 @@ window.addEventListener("gamepaddisconnected", (e) => {
     console.log("Gamepad desconectado:", e.gamepad.id);
     selectInputMode('keyboard');
 });
+
+// UI Difficulty buttons logic
+const diffBtns = document.querySelectorAll('.diff-btn');
+diffBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+        const diff = btn.getAttribute('data-difficulty');
+        window.setDifficulty(diff);
+    });
+});
+
+window.setDifficulty = function(diff) {
+    if (!['easy', 'normal', 'hard', 'expert'].includes(diff)) {
+        console.warn(`Dificuldade inválida: ${diff}. Escolha entre 'easy', 'normal', 'hard', 'expert'.`);
+        return;
+    }
+    state.selectedDifficulty = diff;
+    
+    // Update visual buttons active class
+    const buttons = document.querySelectorAll('.diff-btn');
+    buttons.forEach(btn => {
+        if (btn.getAttribute('data-difficulty') === diff) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    });
+    console.log(`Dificuldade alterada para: ${diff}`);
+};
+
+window.getDifficulty = function() {
+    return state.selectedDifficulty;
+};
+
+// Debug and editing tools
+window.RAChartTools = {
+    printDifficultyStats: function(songId) {
+        const song = typeof SONGS_CHARTS !== 'undefined' ? SONGS_CHARTS[songId] : null;
+        if (!song || !song.instruments) {
+            console.warn(`Música ${songId} não encontrada ou sem instrumentos no banco.`);
+            return;
+        }
+        console.log(`\n${songId} difficulty stats:\n`);
+        const instruments = ['lead_guitar', 'rhythm_guitar', 'bass', 'drums'];
+        instruments.forEach(inst => {
+            const chart = song.instruments[inst];
+            if (chart) {
+                console.log(`${inst}:`);
+                console.log(`  easy: ${chart.easy?.notes?.length || 0}`);
+                console.log(`  normal: ${chart.normal?.notes?.length || 0}`);
+                console.log(`  hard: ${chart.hard?.notes?.length || 0}`);
+                console.log(`  expert: ${chart.expert?.notes?.length || 0}`);
+            }
+        });
+    },
+    exportDifficulty: function(songId, instrumentId, difficulty) {
+        const song = typeof SONGS_CHARTS !== 'undefined' ? SONGS_CHARTS[songId] : null;
+        const inst = song?.instruments?.[instrumentId];
+        const diffChart = inst?.[difficulty];
+        if (diffChart && Array.isArray(diffChart.notes)) {
+            console.log(JSON.stringify(diffChart.notes));
+            return diffChart.notes;
+        } else {
+            console.warn(`Chart não encontrado para ${songId} ${instrumentId} ${difficulty}`);
+        }
+    },
+    shiftDifficulty: function(songId, instrumentId, difficulty, deltaSeconds) {
+        const song = typeof SONGS_CHARTS !== 'undefined' ? SONGS_CHARTS[songId] : null;
+        const inst = song?.instruments?.[instrumentId];
+        const diffChart = inst?.[difficulty];
+        if (diffChart && Array.isArray(diffChart.notes)) {
+            diffChart.notes.forEach(note => {
+                note.time = parseFloat((note.time + deltaSeconds).toFixed(3));
+            });
+            console.log(`Shifted all notes of ${songId} ${instrumentId} ${difficulty} by ${deltaSeconds}s. First note is now at ${diffChart.notes[0]?.time}s.`);
+        } else {
+            console.warn(`Chart não encontrado para shift: ${songId} ${instrumentId} ${difficulty}`);
+        }
+    },
+    generateDifficulties: function(songId) {
+        console.log(`[RAChartTools] A geração de dificuldades a partir do MIDI requer execução via Node.js no workspace.`);
+        console.log(`Por favor, execute o comando: 'node write_playable_charts.js' no seu terminal local.`);
+    }
+};

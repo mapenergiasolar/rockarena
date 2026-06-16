@@ -100,6 +100,17 @@
                         <div class="song-difficulty">Dificuldade: <span style="color: var(--neon-red)">Difícil</span></div>
                     </div>
                 </div>
+
+                <!-- DIFFICULTY SELECTION ROW -->
+                <div class="difficulty-selection glass-card">
+                    <span class="diff-title">DIFICULDADE DA PARTIDA:</span>
+                    <div class="diff-buttons">
+                        <button class="diff-btn" data-difficulty="easy">FÁCIL</button>
+                        <button class="diff-btn active" data-difficulty="normal">NORMAL</button>
+                        <button class="diff-btn" data-difficulty="hard">DIFÍCIL</button>
+                        <button class="diff-btn" data-difficulty="expert">EXPERT</button>
+                    </div>
+                </div>
                 
                 <div class="actions-row">
                     <button id="btn-back-to-menu-song" class="btn btn-secondary">&larr; VOLTAR</button>
@@ -275,6 +286,9 @@
             <!-- On-Screen Rhythm Feedback (Perfect, Good, Miss) -->
             <div id="rhythm-feedback" class="feedback-text"></div>
 
+            <!-- Game Start Countdown (4, 3, 2, 1) -->
+            <div id="game-start-countdown" class="game-start-countdown"></div>
+
             <!-- Skill Activation Overlay -->
             <div id="skill-activation-overlay">
                 <div class="skill-banner-text" id="skill-banner-text">HABILIDADE ATIVADA!</div>
@@ -362,7 +376,9 @@
     </div>
 
     <!-- GAMEPAD AND GAME LOGIC SCRIPTS -->
-    <script src="game.js?v=6"></script>
+    <script src="charts.js?v=9"></script>
+    <script src="song3_difficulties.js?v=1"></script>
+    <script src="game.js?v=9"></script>
 </body>
 
 </html>
