@@ -1,0 +1,305 @@
+ll
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rock Arena - Battle of Bands Online (Demo)</title>
+    <!-- Google Fonts: Orbitron (Futuristic/Tech) and Montserrat (General Text) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700&family=Orbitron:wght@400;700;900&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css?v=6">
+</head>
+
+<body>
+    <div id="app-container">
+        <!-- BACKGROUND VIDEO CONTAINER -->
+        <div id="video-bg-container">
+            <video id="bg-video" loop muted playsinline>
+                <source src="Game_trailer_intro_stadium_202606151550.mp4" type="video/mp4">
+            </video>
+            <video id="special-video" loop muted playsinline style="display: none; opacity: 0;">
+                <source src="full band.mp4" type="video/mp4">
+            </video>
+            <div id="video-overlay"></div>
+        </div>
+
+        <!-- AUDIO PLAYER FOR MUSIC/SOUNDS -->
+        <audio id="game-audio" preload="auto"></audio>
+
+        <!-- SCREEN 1: MAIN MENU (INTRO) -->
+        <section id="menu-screen" class="active-screen">
+            <div class="menu-content glass-card">
+                <div class="logo-area">
+                    <div class="star-logo">★</div>
+                    <h1 class="main-title">ROCK ARENA</h1>
+                    <p class="subtitle">BATTLE OF BANDS ONLINE</p>
+                </div>
+                <div class="pitch-tagline">
+                    O jogo de bandas competitivo para a nova geração
+                </div>
+
+                <div class="menu-actions">
+                    <button id="btn-start-game" class="btn btn-primary btn-glow">INICIAR DEMO</button>
+                    <button id="btn-open-calibration" class="btn btn-secondary">CALIBRAR LAG</button>
+                </div>
+
+                <div class="input-selector">
+                    <p>Dispositivo de Entrada:</p>
+                    <div class="toggle-group">
+                        <label class="toggle-btn active" id="input-kbd">
+                            <input type="radio" name="input_type" value="keyboard" checked hidden> TECLADO
+                        </label>
+                        <label class="toggle-btn" id="input-gpad">
+                            <input type="radio" name="input_type" value="gamepad" hidden> CONTROLE (PS5/XBOX)
+                        </label>
+                    </div>
+                </div>
+
+                <div class="footer-info">
+                    Pitch Deck Demo &bull; Pressione <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> <kbd>K</kbd> <kbd>L</kbd> ou conecte um
+                    Gamepad
+                </div>
+            </div>
+        </section>
+
+        <!-- SCREEN 2: CLASS SELECTION -->
+        <section id="class-screen" class="hidden-screen">
+            <div class="class-selection-container">
+                <h2 class="section-title">ESCOLHA SEU INSTRUMENTO</h2>
+                <p class="section-subtitle">Cada classe tem uma função tática no Cabo de Guerra</p>
+
+                <div class="class-cards">
+                    <!-- Solo Guitar (DPS) -->
+                    <div class="class-card glass-card ripple-effect" data-class="solo" id="card-class-solo">
+                        <div class="class-card-bg"
+                            style="background-image: url('Jax_Solo_Guitarist_Rock_Arena_202606151551.jpeg');"></div>
+                        <div class="class-card-overlay"></div>
+                        <div class="class-badge badge-dps">DPS</div>
+                        <h3 class="class-name">Guitarrista Solo</h3>
+                        <p class="class-desc">Explosão de pontos em solos e seções de alta dificuldade. Ideal para virar
+                            a partida rapidamente.</p>
+                        <div class="class-skill"><strong>Habilidade:</strong> Shred Blitz (+100% Pontos temporários)
+                        </div>
+                    </div>
+
+                    <!-- Rhythm Guitar (Support) -->
+                    <div class="class-card glass-card ripple-effect" data-class="rhythm" id="card-class-rhythm">
+                        <div class="class-card-bg"
+                            style="background-image: url('Futuristic_stadium_at_night_202606151551.jpeg'); opacity: 0.4;">
+                        </div>
+                        <div class="class-card-overlay"></div>
+                        <div class="class-badge badge-support">SUPORTE</div>
+                        <h3 class="class-name">Guitarrista Base</h3>
+                        <p class="class-desc">Protege combos, estabiliza o ritmo e fortalece o grupo. Reduz a perda de
+                            barra ao cometer erros.</p>
+                        <div class="class-skill"><strong>Habilidade:</strong> Combo Shield (Protege o multiplicador
+                            contra 3 erros)</div>
+                    </div>
+
+                    <!-- Bass (Defense) -->
+                    <div class="class-card glass-card ripple-effect" data-class="bass" id="card-class-bass">
+                        <div class="class-card-bg"
+                            style="background-image: url('Storyboard_for_Rock_Arena_Online_202606151551.jpeg'); opacity: 0.3;">
+                        </div>
+                        <div class="class-card-overlay"></div>
+                        <div class="class-badge badge-defense">DEFESA</div>
+                        <h3 class="class-name">Baixista</h3>
+                        <p class="class-desc">Evita o colapso da banda e ajuda a recuperar momentos críticos. Impede que
+                            o rival avance a barra de Cabo de Guerra.</p>
+                        <div class="class-skill"><strong>Habilidade:</strong> Groove Anchor (Congela o avanço inimigo
+                            por 5 segundos)</div>
+                    </div>
+
+                    <!-- Drums (Energy) -->
+                    <div class="class-card glass-card ripple-effect" data-class="drums" id="card-class-drums">
+                        <div class="class-card-bg"
+                            style="background-image: url('cyberpunk_drummer_bg.png'); opacity: 0.35;"></div>
+                        <div class="class-card-overlay"></div>
+                        <div class="class-badge badge-energy">ENERGIA</div>
+                        <h3 class="class-name">Baterista</h3>
+                        <p class="class-desc">Gera habilidades, coordena o grupo e acelera o ritmo coletivo. Carrega a
+                            barra de especial da equipe mais rápido.</p>
+                        <div class="class-skill"><strong>Habilidade:</strong> Overdrive Beat (Carrega especial 2x mais
+                            rápido)</div>
+                    </div>
+                </div>
+
+                <div class="actions-row">
+                    <button id="btn-back-to-menu" class="btn btn-secondary">&larr; VOLTAR</button>
+                    <button id="btn-confirm-class" class="btn btn-primary btn-glow" disabled>CONFIRMAR CLASSE</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- SCREEN 3: GAMEPLAY ARENA -->
+        <section id="game-screen" class="hidden-screen">
+            <!-- Top HUD: Tug of War -->
+            <div class="hud-top">
+                <div class="team-info team-left">
+                    <span class="team-name text-neon-red">JAX'S BAND</span>
+                    <span id="player-score" class="team-score">000,000</span>
+                </div>
+
+                <!-- Tug of War Bar (Cabo de Guerra) -->
+                <div class="tug-of-war-wrapper glass-card">
+                    <div class="tug-bar-label">BANDA A VS BANDA B</div>
+                    <div class="tug-bar-container">
+                        <div id="tug-bar-fill" class="tug-bar-fill-neutral"></div>
+                        <div id="tug-bar-marker" class="tug-bar-marker"></div>
+                    </div>
+                    <div class="tug-status-text" id="tug-status">EM DISPUTA</div>
+                </div>
+
+                <div class="team-info team-right">
+                    <span id="rival-score" class="team-score">000,000</span>
+                    <span class="team-name text-neon-blue">SHRED RIVALS</span>
+                </div>
+            </div>
+
+            <!-- Active Class and Skills Indicator -->
+            <div class="hud-side-left">
+                <div class="class-indicator glass-card">
+                    <div class="indicator-title">SUA CLASSE</div>
+                    <div id="hud-class-name" class="indicator-value">-</div>
+                    <div class="indicator-role" id="hud-class-role">-</div>
+                </div>
+
+                <div class="special-meter-wrapper glass-card">
+                    <div class="indicator-title">ENERGIA ESPECIAL</div>
+                    <div class="special-bar-container">
+                        <div id="special-bar-fill" class="special-bar-fill"></div>
+                    </div>
+                    <div class="special-hint" id="special-hint">PRESSIONE ESPAÇO PARA ATIVAR!</div>
+                </div>
+            </div>
+
+            <!-- Combo and Accuracy Indicator -->
+            <div class="hud-side-right">
+                <div class="combo-wrapper">
+                    <div class="combo-title">COMBO</div>
+                    <div id="combo-count" class="combo-count text-neon-red">0</div>
+                    <div id="combo-multiplier" class="combo-mult">1x</div>
+                </div>
+                <div class="accuracy-wrapper glass-card">
+                    <div>Precisão: <span id="hud-accuracy">100%</span></div>
+                </div>
+            </div>
+
+            <!-- Rhythm Tracks (Guitar Hero Style) -->
+            <div class="rhythm-arena-container">
+                <div class="rhythm-board-perspective">
+                    <div class="rhythm-board">
+                        <!-- Lanes -->
+                        <div class="lane" id="lane-0"></div>
+                        <div class="lane" id="lane-1"></div>
+                        <div class="lane" id="lane-2"></div>
+                        <div class="lane" id="lane-3"></div>
+                        <div class="lane" id="lane-4"></div>
+
+                        <!-- Canvas for scrolling notes -->
+                        <canvas id="rhythm-canvas"></canvas>
+
+                        <!-- Hit Target line at the bottom -->
+                        <div class="hit-targets-line">
+                            <div class="hit-target red-glow" id="target-0">
+                                <span class="key-hint">A</span>
+                                <div class="target-flash"></div>
+                            </div>
+                            <div class="hit-target yellow-glow" id="target-1">
+                                <span class="key-hint">S</span>
+                                <div class="target-flash"></div>
+                            </div>
+                            <div class="hit-target orange-glow" id="target-2">
+                                <span class="key-hint">D</span>
+                                <div class="target-flash"></div>
+                            </div>
+                            <div class="hit-target green-glow" id="target-3">
+                                <span class="key-hint">K</span>
+                                <div class="target-flash"></div>
+                            </div>
+                            <div class="hit-target blue-glow" id="target-4">
+                                <span class="key-hint">L</span>
+                                <div class="target-flash"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- On-Screen Rhythm Feedback (Perfect, Good, Miss) -->
+            <div id="rhythm-feedback" class="feedback-text"></div>
+
+            <!-- Skill Activation Overlay -->
+            <div id="skill-activation-overlay">
+                <div class="skill-banner-text" id="skill-banner-text">HABILIDADE ATIVADA!</div>
+            </div>
+
+            <!-- Game Pause/Esc instructions -->
+            <div class="gameplay-footer">
+                Controle: Botões do D-Pad / Analógico ou Teclado. Pressione <kbd>Esc</kbd> para Sair.
+            </div>
+        </section>
+
+        <!-- SCREEN 4: RESULTS / SHOWDOWN END -->
+        <section id="results-screen" class="hidden-screen">
+            <div class="results-container glass-card">
+                <h2 id="results-verdict" class="results-verdict">VITÓRIA!</h2>
+                <p id="results-subverdict" class="results-subverdict">BANDA DOMINOU A PLATEIA!</p>
+
+                <div class="results-stats">
+                    <div class="stat-box">
+                        <span class="stat-label">Sua Pontuação</span>
+                        <span id="res-player-score" class="stat-value text-neon-red">1,287,450</span>
+                    </div>
+                    <div class="stat-box">
+                        <span class="stat-label">Pontos Rivais</span>
+                        <span id="res-rival-score" class="stat-value text-neon-blue">1,102,310</span>
+                    </div>
+                    <div class="stat-box">
+                        <span class="stat-label">Precisão de Notas</span>
+                        <span id="res-accuracy" class="stat-value">94%</span>
+                    </div>
+                    <div class="stat-box">
+                        <span class="stat-label">Maior Combo</span>
+                        <span id="res-max-combo" class="stat-value">142</span>
+                    </div>
+                </div>
+
+                <div class="results-actions">
+                    <button id="btn-restart-game" class="btn btn-primary btn-glow">JOGAR NOVAMENTE</button>
+                    <button id="btn-back-to-menu-res" class="btn btn-secondary">MENU PRINCIPAL</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- CALIBRATION MODAL -->
+        <div id="calibration-modal" class="modal-overlay hidden-screen">
+            <div class="modal-content glass-card">
+                <h3>Calibração de Atraso (Lag)</h3>
+                <p>Se as notas parecerem fora de sincronia com a música, ajuste a calibração:</p>
+
+                <div class="calibration-slider-group">
+                    <label for="offset-slider">Atraso de Áudio: <span id="offset-value">0ms</span></label>
+                    <input type="range" id="offset-slider" min="-300" max="300" step="5" value="0">
+                </div>
+
+                <div class="calibration-tap-area" id="calibration-tap-btn">
+                    CLIQUE NO RITMO DA BATIDA
+                </div>
+                <div class="calibration-hint">Toque na barra acima no ritmo para autocalibração.</div>
+
+                <button id="btn-close-calibration" class="btn btn-primary">SALVAR E FECHAR</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- GAMEPAD AND GAME LOGIC SCRIPTS -->
+    <script src="game.js?v=6"></script>
+</body>
+
+</html>
