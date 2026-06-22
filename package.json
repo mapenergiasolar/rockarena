@@ -1,0 +1,13 @@
+{
+  "name": "rock-arena",
+  "version": "1.0.0",
+  "description": "Rock Arena - Battle of Bands Online (Demo)",
+  "main": "src/js/game.js",
+  "scripts": {
+    "start": "npx http-server . -p 8080"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "http-server": "^14.1.1"
+  }
+}

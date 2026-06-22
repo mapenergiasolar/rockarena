@@ -11,7 +11,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700&family=Orbitron:wght@400;700;900&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=6">
+    <link rel="stylesheet" href="src/css/style.css?v=6">
 </head>
 
 <body>
@@ -19,10 +19,10 @@
         <!-- BACKGROUND VIDEO CONTAINER -->
         <div id="video-bg-container">
             <video id="bg-video" loop muted playsinline>
-                <source src="Game_trailer_intro_stadium_202606151550.mp4" type="video/mp4">
+                <source src="assets/videos/Game_trailer_intro_stadium_202606151550.mp4" type="video/mp4">
             </video>
             <video id="special-video" loop muted playsinline style="display: none; opacity: 0;">
-                <source src="full band.mp4" type="video/mp4">
+                <source src="assets/videos/full band.mp4" type="video/mp4">
             </video>
             <div id="video-overlay"></div>
         </div>
@@ -129,7 +129,7 @@
                     <!-- Solo Guitar (DPS) -->
                     <div class="class-card glass-card ripple-effect" data-class="solo" id="card-class-solo">
                         <div class="class-card-bg"
-                            style="background-image: url('Jax_Solo_Guitarist_Rock_Arena_202606151551.jpeg');"></div>
+                            style="background-image: url('assets/images/Jax_Solo_Guitarist_Rock_Arena_202606151551.jpeg');"></div>
                         <div class="class-card-overlay"></div>
                         <div class="class-badge badge-dps">DPS</div>
                         <h3 class="class-name">Guitarrista Solo</h3>
@@ -142,7 +142,7 @@
                     <!-- Rhythm Guitar (Support) -->
                     <div class="class-card glass-card ripple-effect" data-class="rhythm" id="card-class-rhythm">
                         <div class="class-card-bg"
-                            style="background-image: url('Futuristic_stadium_at_night_202606151551.jpeg'); opacity: 0.4;">
+                            style="background-image: url('assets/images/Futuristic_stadium_at_night_202606151551.jpeg'); opacity: 0.4;">
                         </div>
                         <div class="class-card-overlay"></div>
                         <div class="class-badge badge-support">SUPORTE</div>
@@ -156,7 +156,7 @@
                     <!-- Bass (Defense) -->
                     <div class="class-card glass-card ripple-effect" data-class="bass" id="card-class-bass">
                         <div class="class-card-bg"
-                            style="background-image: url('Storyboard_for_Rock_Arena_Online_202606151551.jpeg'); opacity: 0.3;">
+                            style="background-image: url('assets/images/Storyboard_for_Rock_Arena_Online_202606151551.jpeg'); opacity: 0.3;">
                         </div>
                         <div class="class-card-overlay"></div>
                         <div class="class-badge badge-defense">DEFESA</div>
@@ -170,7 +170,7 @@
                     <!-- Drums (Energy) -->
                     <div class="class-card glass-card ripple-effect" data-class="drums" id="card-class-drums">
                         <div class="class-card-bg"
-                            style="background-image: url('cyberpunk_drummer_bg.png'); opacity: 0.35;"></div>
+                            style="background-image: url('assets/images/cyberpunk_drummer_bg.png'); opacity: 0.35;"></div>
                         <div class="class-card-overlay"></div>
                         <div class="class-badge badge-energy">ENERGIA</div>
                         <h3 class="class-name">Baterista</h3>
@@ -376,9 +376,10 @@
     </div>
 
     <!-- GAMEPAD AND GAME LOGIC SCRIPTS -->
-    <script src="charts.js?v=9"></script>
-    <script src="song3_difficulties.js?v=1"></script>
-    <script src="game.js?v=9"></script>
+    <script src="data/charts/charts.js?v=9"></script>
+    <script src="data/charts/song3_difficulties.js?v=1"></script>
+    <script src="data/charts/song2_difficulties.js?v=1"></script>
+    <script src="src/js/game.js?v=9"></script>
 </body>
 
 </html>

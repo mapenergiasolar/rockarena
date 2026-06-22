@@ -426,9 +426,9 @@ function processPlayable(rawNotes, instType, offsetVal) {
 }
 
 try {
-    const cleanMidiPath = path.resolve(__dirname, 'hellraiser_clean.mid');
-    const chartsPath = path.resolve(__dirname, 'charts.js');
-    const midiChartPath = path.resolve(__dirname, 'song3_hellraiser_chart_from_midi.js');
+    const cleanMidiPath = path.resolve(__dirname, '../data/midi/hellraiser_clean.mid');
+    const chartsPath = path.resolve(__dirname, '../data/charts/charts.js');
+    const midiChartPath = path.resolve(__dirname, '../archive/old-charts/song3_hellraiser_chart_from_midi.js');
 
     // ADJUST THE OFFSET VALUES HERE PER INSTRUMENT (in seconds):
     const offsets = {

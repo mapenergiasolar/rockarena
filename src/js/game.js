@@ -17,9 +17,9 @@ const GAME_CFG = {
 };
 
 const SONGS_DATABASE = {
-    song1: { id: 'song1', title: "Ride Like The Wind", artist: "Jorn", file: "song.mp3", bpm: 125, difficulty: "Fácil" },
-    song2: { id: 'song2', title: "Californication", artist: "Red Hot Chili Peppers", file: "song2.mp3", bpm: 96, difficulty: "Médio" },
-    song3: { id: 'song3', title: "Hellraiser", artist: "Ozzy Osbourne", file: "song3.mp3", bpm: 96, difficulty: "Difícil" }
+    song1: { id: 'song1', title: "Ride Like The Wind", artist: "Jorn", file: "assets/audio/song.mp3", bpm: 125, difficulty: "Fácil" },
+    song2: { id: 'song2', title: "Californication", artist: "Red Hot Chili Peppers", file: "assets/audio/song2.mp3", bpm: 96, difficulty: "Médio" },
+    song3: { id: 'song3', title: "Hellraiser", artist: "Ozzy Osbourne", file: "assets/audio/song3.mp3", bpm: 96, difficulty: "Difícil" }
 };
 
 const state = {
@@ -461,23 +461,23 @@ function showScreen(screenId) {
 
     // Handle background cinematic videos depending on the screen
     if (screenId === 'menu-screen' || screenId === 'song-screen') {
-        if (!els.bgVideo.src.includes("Game_trailer_intro_stadium_202606151550.mp4")) {
-            els.bgVideo.src = "Game_trailer_intro_stadium_202606151550.mp4";
+        if (!els.bgVideo.src.includes("assets/videos/Game_trailer_intro_stadium_202606151550.mp4")) {
+            els.bgVideo.src = "assets/videos/Game_trailer_intro_stadium_202606151550.mp4";
             els.bgVideo.load();
             els.bgVideo.play().catch(e => console.log("Autoplay blocked: user must click first."));
         }
     } else if (screenId === 'game-screen') {
-        let videoSrc = "Rocker_shreds_guitar_solo_stage_202606151550.mp4";
-        if (state.selectedClass === 'solo') videoSrc = "guitar.mp4";
-        else if (state.selectedClass === 'rhythm') videoSrc = "base guitar.mp4";
-        else if (state.selectedClass === 'bass') videoSrc = "bass.mp4";
-        else if (state.selectedClass === 'drums') videoSrc = "drums.mp4";
+        let videoSrc = "assets/videos/Rocker_shreds_guitar_solo_stage_202606151550.mp4";
+        if (state.selectedClass === 'solo') videoSrc = "assets/videos/guitar.mp4";
+        else if (state.selectedClass === 'rhythm') videoSrc = "assets/videos/base guitar.mp4";
+        else if (state.selectedClass === 'bass') videoSrc = "assets/videos/bass.mp4";
+        else if (state.selectedClass === 'drums') videoSrc = "assets/videos/drums.mp4";
         
         els.bgVideo.src = videoSrc;
         els.bgVideo.load();
         // Video playing is managed by startSong() inside game loop to guarantee sync
     } else if (screenId === 'results-screen') {
-        els.bgVideo.src = "Band_battle_epic_finale_victory_202606151550.mp4";
+        els.bgVideo.src = "assets/videos/Band_battle_epic_finale_victory_202606151550.mp4";
         els.bgVideo.load();
         els.bgVideo.play().catch(e => console.log("Autoplay blocked."));
     }
@@ -629,7 +629,7 @@ function startGameplay() {
     GAME_CFG.bpm = songData.bpm;
     
     // Preload special video
-    els.specialVideo.src = "full band.mp4";
+    els.specialVideo.src = "assets/videos/full band.mp4";
     els.specialVideo.load();
     els.specialVideo.muted = true;
     els.specialVideo.currentTime = 0;
@@ -657,8 +657,8 @@ function startGameplay() {
     state.metronomeClicksPlayed = [false, false, false, false, false];
 
     // Play intro video clip with audio
-    console.log("Playing intro video: intro.mp4");
-    els.bgVideo.src = "intro.mp4";
+    console.log("Playing intro video: assets/videos/intro.mp4");
+    els.bgVideo.src = "assets/videos/intro.mp4";
     els.bgVideo.muted = false; // play with sound!
     els.bgVideo.loop = false;
     els.bgVideo.currentTime = 0;
@@ -670,11 +670,11 @@ function startGameplay() {
         state.introEndedListener = null;
         
         // Switch to looping instrument video
-        let videoSrc = "Rocker_shreds_guitar_solo_stage_202606151550.mp4";
-        if (state.selectedClass === 'solo') videoSrc = "guitar.mp4";
-        else if (state.selectedClass === 'rhythm') videoSrc = "base guitar.mp4";
-        else if (state.selectedClass === 'bass') videoSrc = "bass.mp4";
-        else if (state.selectedClass === 'drums') videoSrc = "drums.mp4";
+        let videoSrc = "assets/videos/Rocker_shreds_guitar_solo_stage_202606151550.mp4";
+        if (state.selectedClass === 'solo') videoSrc = "assets/videos/guitar.mp4";
+        else if (state.selectedClass === 'rhythm') videoSrc = "assets/videos/base guitar.mp4";
+        else if (state.selectedClass === 'bass') videoSrc = "assets/videos/bass.mp4";
+        else if (state.selectedClass === 'drums') videoSrc = "assets/videos/drums.mp4";
         
         els.bgVideo.src = videoSrc;
         els.bgVideo.muted = true;
@@ -1685,6 +1685,35 @@ window.RAChartTools = {
             console.log(`Shifted all notes of ${songId} ${instrumentId} ${difficulty} by ${deltaSeconds}s. First note is now at ${diffChart.notes[0]?.time}s.`);
         } else {
             console.warn(`Chart não encontrado para shift: ${songId} ${instrumentId} ${difficulty}`);
+        }
+    },
+    shiftSong: function(songId, deltaSeconds) {
+        const song = typeof SONGS_CHARTS !== 'undefined' ? SONGS_CHARTS[songId] : null;
+        if (!song || !song.instruments) {
+            console.warn(`Música ${songId} não encontrada ou sem instrumentos no banco.`);
+            return;
+        }
+        for (const instId in song.instruments) {
+            const inst = song.instruments[instId];
+            const diffs = ['easy', 'normal', 'hard', 'expert'];
+            diffs.forEach(difficulty => {
+                const diffChart = inst[difficulty];
+                if (diffChart && Array.isArray(diffChart.notes)) {
+                    diffChart.notes.forEach(note => {
+                        note.time = parseFloat((note.time + deltaSeconds).toFixed(3));
+                    });
+                }
+            });
+        }
+        console.log(`[RAChartTools] Shifted ALL notes of song ${songId} by ${deltaSeconds}s.`);
+    },
+    exportSong: function(songId) {
+        const song = typeof SONGS_CHARTS !== 'undefined' ? SONGS_CHARTS[songId] : null;
+        if (song) {
+            console.log(JSON.stringify(song, null, 4));
+            return song;
+        } else {
+            console.warn(`Música ${songId} não encontrada.`);
         }
     },
     generateDifficulties: function(songId) {

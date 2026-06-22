@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Analyze Audio Offset</title>
+</head>
+<body>
+    <h3>Analyzing song2.mp3... Check DevTools console.</h3>
+    <div id="result">Analyzing...</div>
+    <script>
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        fetch('../assets/audio/song2.mp3')
+          .then(response => response.arrayBuffer())
+          .then(arrayBuffer => audioCtx.decodeAudioData(arrayBuffer))
+          .then(audioBuffer => {
+              const channelData = audioBuffer.getChannelData(0);
+              const sampleRate = audioBuffer.sampleRate;
+              const threshold = 0.01;
+              let firstSoundTime = -1;
+              for (let i = 0; i < channelData.length; i++) {
+                  if (Math.abs(channelData[i]) > threshold) {
+                      firstSoundTime = i / sampleRate;
+                      break;
+                  }
+              }
+              
+              console.log("FIRST SOUND DETECTED AT:", firstSoundTime, "seconds");
+              console.log("DURATION:", audioBuffer.duration, "seconds");
+              document.getElementById('result').innerText = "First sound starts at: " + firstSoundTime.toFixed(4) + " seconds. Duration: " + audioBuffer.duration.toFixed(2) + " seconds.";
+          })
+          .catch(err => {
+              console.error(err);
+              document.getElementById('result').innerText = "Error: " + err.message;
+          });
+    </script>
+</body>
+</html>
