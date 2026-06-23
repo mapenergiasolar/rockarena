@@ -1325,6 +1325,9 @@ function updateGamepadInput() {
         const wasPressed = state.lastGamepadButtonState[btnIndex];
         
         if (isPressed && !wasPressed) {
+            if (DEBUG_DEMO_BATTLE) {
+                console.log(`Gamepad Button Pressed: index ${btnIndex} (Lane ${lane})`);
+            }
             // Button pressed down
             state.activeTouches[lane] = true;
             processHit(lane);
@@ -1341,6 +1344,9 @@ function updateGamepadInput() {
     const specialWasPressed = state.lastGamepadButtonState[4] || state.lastGamepadButtonState[5];
     
     if (specialPressed && !specialWasPressed) {
+        if (DEBUG_DEMO_BATTLE) {
+            console.log("Gamepad Special Button (L1/R1) pressed");
+        }
         triggerSpecialSkill();
     }
 
@@ -1349,6 +1355,9 @@ function updateGamepadInput() {
     const showtimeWasPressed = state.lastGamepadButtonState[6] || state.lastGamepadButtonState[7];
 
     if (showtimePressed && !showtimeWasPressed) {
+        if (DEBUG_DEMO_BATTLE) {
+            console.log("Gamepad Showtime Button (L2/R2) pressed");
+        }
         triggerBandShowtime();
     }
     
