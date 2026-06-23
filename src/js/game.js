@@ -1220,28 +1220,20 @@ window.addEventListener('keydown', (e) => {
         
         const target = state.waitingForKeyForLane;
         
-        // Prevent duplicate mapping
-        let alreadyBound = false;
-        
-        // Check lanes
+        // Find duplicate keyboard mappings and clear them
         for (let i = 0; i < 5; i++) {
             if (target !== i && laneKeys[i].key === key) {
-                alreadyBound = true;
+                laneKeys[i].key = '';
+                localStorage.setItem(`rockarena_key_${i}`, '');
             }
         }
-        // Check specials
         if (target !== 'special_individual' && specialKeys.individual.key === key) {
-            alreadyBound = true;
+            specialKeys.individual.key = '';
+            localStorage.setItem('rockarena_key_special_individual', '');
         }
         if (target !== 'special_band' && specialKeys.band.key === key) {
-            alreadyBound = true;
-        }
-        
-        if (alreadyBound) {
-            alert(`A tecla '${key === ' ' ? 'ESPAÇO' : key.toUpperCase()}' já está mapeada!`);
-            state.waitingForKeyForLane = null;
-            updateKeybindingsUI();
-            return;
+            specialKeys.band.key = '';
+            localStorage.setItem('rockarena_key_special_band', '');
         }
         
         // Assign new key, persist, and update UI
@@ -1900,7 +1892,7 @@ function getKeyDisplayName(key) {
 }
 
 function getGamepadButtonName(index) {
-    if (index === undefined || index === null) return "NÃO MAPEADO";
+    if (index === undefined || index === null || index === '') return "NÃO MAPEADO";
     const names = {
         0: "A / ✕",
         1: "B / ◯",
@@ -1957,24 +1949,20 @@ function startGamepadRebindPolling() {
             if (isPressed && !wasPressed) {
                 const target = state.waitingForKeyForLane;
                 
-                let alreadyBound = false;
+                // Find duplicate gamepad mappings and clear them
                 for (let i = 0; i < 5; i++) {
                     if (target !== i && gpadButtons[i] === b) {
-                        alreadyBound = true;
+                        gpadButtons[i] = null;
+                        localStorage.setItem(`rockarena_gpad_${i}`, '');
                     }
                 }
                 if (target !== 'special_individual' && gpadButtons.special === b) {
-                    alreadyBound = true;
+                    gpadButtons.special = null;
+                    localStorage.setItem('rockarena_gpad_special', '');
                 }
                 if (target !== 'special_band' && gpadButtons.showtime === b) {
-                    alreadyBound = true;
-                }
-                
-                if (alreadyBound) {
-                    alert(`O botão '${getGamepadButtonName(b)}' já está mapeado!`);
-                    state.waitingForKeyForLane = null;
-                    updateKeybindingsUI();
-                    return;
+                    gpadButtons.showtime = null;
+                    localStorage.setItem('rockarena_gpad_showtime', '');
                 }
                 
                 if (typeof target === 'number') {
@@ -2020,17 +2008,23 @@ function loadKeybindings() {
     // Gamepad button bindings
     for (let i = 0; i < 5; i++) {
         const savedGpad = localStorage.getItem(`rockarena_gpad_${i}`);
-        if (savedGpad !== null) {
+        if (savedGpad !== null && savedGpad !== '') {
             gpadButtons[i] = parseInt(savedGpad);
+        } else if (savedGpad === '') {
+            gpadButtons[i] = null;
         }
     }
     const savedGpadSpecial = localStorage.getItem('rockarena_gpad_special');
-    if (savedGpadSpecial !== null) {
+    if (savedGpadSpecial !== null && savedGpadSpecial !== '') {
         gpadButtons.special = parseInt(savedGpadSpecial);
+    } else if (savedGpadSpecial === '') {
+        gpadButtons.special = null;
     }
     const savedGpadShowtime = localStorage.getItem('rockarena_gpad_showtime');
-    if (savedGpadShowtime !== null) {
+    if (savedGpadShowtime !== null && savedGpadShowtime !== '') {
         gpadButtons.showtime = parseInt(savedGpadShowtime);
+    } else if (savedGpadShowtime === '') {
+        gpadButtons.showtime = null;
     }
 
     // Restore input mode
