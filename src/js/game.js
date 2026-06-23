@@ -1886,6 +1886,7 @@ function endGame() {
 // KEYBOARD & GAMEPAD REBINDING LOGIC
 // ----------------------------------------------------
 function getKeyDisplayName(key) {
+    if (!key) return 'NÃO MAPEADO';
     if (key === ' ') return 'ESPAÇO';
     if (key === 'enter') return 'ENTER';
     return key.toUpperCase();
