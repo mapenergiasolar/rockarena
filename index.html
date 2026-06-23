@@ -25,6 +25,7 @@
                 <source src="assets/videos/full band.mp4" type="video/mp4">
             </video>
             <div id="video-overlay"></div>
+            <div id="arena-dominance-overlay"></div>
         </div>
 
         <!-- AUDIO PLAYER FOR MUSIC/SOUNDS -->
@@ -228,6 +229,14 @@
                     </div>
                     <div class="special-hint" id="special-hint">PRESSIONE ESPAÇO PARA ATIVAR!</div>
                 </div>
+
+                <div class="band-meter-wrapper glass-card">
+                    <div class="indicator-title">ENERGIA DA BANDA</div>
+                    <div class="band-bar-container">
+                        <div id="band-bar-fill" class="band-bar-fill"></div>
+                    </div>
+                    <div class="band-hint" id="band-hint">PRESSIONE ENTER PARA ATIVAR SHOWTIME!</div>
+                </div>
             </div>
 
             <!-- Combo and Accuracy Indicator -->
@@ -322,6 +331,22 @@
                     <div class="stat-box">
                         <span class="stat-label">Maior Combo</span>
                         <span id="res-max-combo" class="stat-value">142</span>
+                    </div>
+                    <div class="stat-box">
+                        <span class="stat-label">Banda Vencedora</span>
+                        <span id="res-winner-band" class="stat-value text-neon-red">-</span>
+                    </div>
+                    <div class="stat-box">
+                        <span class="stat-label">Domínio Final</span>
+                        <span id="res-final-dominance" class="stat-value">-</span>
+                    </div>
+                    <div class="stat-box">
+                        <span class="stat-label">Destaque Individual Usado</span>
+                        <span id="res-ind-skill-used" class="stat-value">-</span>
+                    </div>
+                    <div class="stat-box">
+                        <span class="stat-label">Showtime Usado</span>
+                        <span id="res-showtime-used" class="stat-value">-</span>
                     </div>
                 </div>
 

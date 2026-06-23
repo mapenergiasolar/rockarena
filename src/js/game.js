@@ -3,6 +3,11 @@
  * Rhythm mechanics, audio-visual sync, Gamepad API, and Class systems.
  */
 
+const DEBUG_DEMO_BATTLE = true;
+if (DEBUG_DEMO_BATTLE) {
+    console.log("Demo Battle initialized");
+}
+
 // Game Configuration & State
 const GAME_CFG = {
     bpm: 120,
@@ -42,15 +47,28 @@ const state = {
     accuracy: 100,
     
     // Tug of War
-    tugValue: 50, // Starts neutral
+    crowdDominance: 50, // 0 = full Rival/Blue, 50 = neutral, 100 = full Player/Red
     
     // Hability System
     specialEnergy: 0,
     specialActive: false,
-    specialDuration: 6000, // 6 seconds
+    specialDuration: 7000, // 7 seconds (Destaque Individual)
     specialTimer: null,
     comboShieldHits: 0, // for rhythm class
     grooveAnchorActive: false, // for bass class
+    
+    // Collective Band Showtime
+    bandEnergy: 0,
+    bandShowtimeActive: false,
+    bandShowtimeDuration: 10000, // 10 seconds
+    bandShowtimeTimer: null,
+    
+    // Trackers for Results
+    individualAbilityUsed: false,
+    bandShowtimeUsed: false,
+    
+    // Rival simulation state
+    rival: null,
     
     // Engine internals
     isLoopRunning: false,
@@ -101,6 +119,14 @@ const els = {
     tugBarFill: document.getElementById('tug-bar-fill'),
     tugBarMarker: document.getElementById('tug-bar-marker'),
     tugStatus: document.getElementById('tug-status'),
+    tugBarLabel: document.querySelector('.tug-bar-label'),
+    bandBarFill: document.getElementById('band-bar-fill'),
+    bandHint: document.getElementById('band-hint'),
+    arenaDominanceOverlay: document.getElementById('arena-dominance-overlay'),
+    resWinnerBand: document.getElementById('res-winner-band'),
+    resFinalDominance: document.getElementById('res-final-dominance'),
+    resIndSkillUsed: document.getElementById('res-ind-skill-used'),
+    resShowtimeUsed: document.getElementById('res-showtime-used'),
     
     // HUD Stats
     comboCount: document.getElementById('combo-count'),
@@ -595,18 +621,41 @@ function startGameplay() {
     state.notesHit = 0;
     state.notesMissed = 0;
     state.accuracy = 100;
-    state.tugValue = 50;
+    state.crowdDominance = 50;
     state.specialEnergy = 0;
     state.holdingNotes = [null, null, null, null, null];
     state.specialActive = false;
     state.comboShieldHits = 0;
     state.grooveAnchorActive = false;
     
+    // Collective Band Showtime & Trackers Reset
+    state.bandEnergy = 0;
+    state.bandShowtimeActive = false;
+    state.individualAbilityUsed = false;
+    state.bandShowtimeUsed = false;
+    
+    state.rival = {
+        score: 0,
+        combo: 0,
+        maxCombo: 0,
+        accuracy: 100,
+        notesHit: 0,
+        totalNotes: 0,
+        lastProcessedSecond: -1
+    };
+    
     els.playerScoreTxt.innerText = "000,000";
     els.rivalScoreTxt.innerText = "000,000";
     updateTugOfWarUI();
     updateComboUI();
     updateSpecialUI();
+    updateBandSpecialUI();
+    
+    // Reset arena overlay classes
+    if (els.arenaDominanceOverlay) {
+        els.arenaDominanceOverlay.className = '';
+    }
+    
     els.hudAccuracy.innerText = "100%";
     
     // Setup class displays
@@ -686,11 +735,17 @@ function startGameplay() {
         els.gameAudio.play()
             .then(() => {
                 console.log(`${songData.file} carregada e tocando com sucesso!`);
+                if (DEBUG_DEMO_BATTLE) {
+                    console.log("Rival performance started");
+                }
                 state.isLoopRunning = true;
                 rhythmLoop();
             })
             .catch(err => {
                 console.warn(`${songData.file} autoplay bloqueado. Rodando jogo silencioso...`, err);
+                if (DEBUG_DEMO_BATTLE) {
+                    console.log("Rival performance started");
+                }
                 state.isLoopRunning = true;
                 rhythmLoop();
             });
@@ -735,6 +790,8 @@ function stopGameplay() {
     els.specialVideo.pause();
     els.gameAudio.pause();
     if (state.specialTimer) clearTimeout(state.specialTimer);
+    if (state.bandShowtimeTimer) clearTimeout(state.bandShowtimeTimer);
+    if (els.arenaDominanceOverlay) els.arenaDominanceOverlay.className = '';
 }
 
 // Core Game Loop
@@ -796,6 +853,32 @@ function updateGameLogic() {
             }
             state.playerScore += 3;
             els.playerScoreTxt.innerText = formatScore(state.playerScore);
+            
+            // Hold energy charge
+            if (!state.specialActive) {
+                const oldEnergy = state.specialEnergy;
+                let holdCharge = 0.2;
+                if (state.selectedClass === 'drums') holdCharge *= 2.0;
+                state.specialEnergy = Math.min(100, state.specialEnergy + holdCharge);
+                updateSpecialUI();
+                if (oldEnergy < 100 && state.specialEnergy >= 100) {
+                    if (DEBUG_DEMO_BATTLE) {
+                        console.log("Individual ability charged");
+                    }
+                }
+            }
+            if (!state.bandShowtimeActive) {
+                const oldBandEnergy = state.bandEnergy;
+                const bandHoldCharge = state.specialActive ? 0.15 : 0.08;
+                state.bandEnergy = Math.min(100, state.bandEnergy + bandHoldCharge);
+                updateBandSpecialUI();
+                if (oldBandEnergy < 100 && state.bandEnergy >= 100) {
+                    if (DEBUG_DEMO_BATTLE) {
+                        console.log("Band Showtime charged");
+                    }
+                }
+            }
+            
             if (Math.random() < 0.4) {
                 spawnSustainParticle(lane);
             }
@@ -817,17 +900,7 @@ function updateGameLogic() {
     const matchTime = els.gameAudio.currentTime;
     
     if (state.isLoopRunning && matchTime > 0.5) {
-        // Proc rival points slowly over time
-        if (Math.random() < 0.08) {
-            // Check if groove anchor is active (Baixista skill stops opponent gains)
-            if (!state.grooveAnchorActive) {
-                state.rivalScore += Math.floor(Math.random() * 800) + 200;
-                els.rivalScoreTxt.innerText = formatScore(state.rivalScore);
-                
-                const defenseFactor = (state.selectedClass === 'bass') ? 0.5 : 1.0;
-                adjustTugValue(0.4 * defenseFactor);
-            }
-        }
+        updateRivalSimulation(matchTime);
     }
     
     // Check if song has ended (either audio ended, or track duration reached)
@@ -878,10 +951,10 @@ function triggerHit(note, precision) {
     }
     
     // Multiplier calculation
-    let mult = 1;
-    if (state.combo >= 40) mult = 4;
-    else if (state.combo >= 25) mult = 3;
-    else if (state.combo >= 10) mult = 2;
+    let scoreMult = 1;
+    if (state.combo >= 40) scoreMult = 4;
+    else if (state.combo >= 25) scoreMult = 3;
+    else if (state.combo >= 10) scoreMult = 2;
     
     // Class modifiers
     let scoreBase = GAME_CFG.scorePerfect;
@@ -894,7 +967,7 @@ function triggerHit(note, precision) {
         classBonus = 2.0;
     }
     
-    const pointsGained = Math.round(scoreBase * mult * classBonus);
+    const pointsGained = Math.round(scoreBase * scoreMult * classBonus);
     state.playerScore += pointsGained;
     els.playerScoreTxt.innerText = formatScore(state.playerScore);
     
@@ -902,22 +975,77 @@ function triggerHit(note, precision) {
     state.combo++;
     if (state.combo > state.maxCombo) state.maxCombo = state.combo;
     
-    // Charge Special meter
-    // Baterista charges 2x faster, others regular, some double points
-    let chargeSpeed = 3; // 3% per hit
+    // Charge Special meter (Individual ability: Destaque Individual)
+    let chargeSpeed = 3; // good default
+    if (precision === 'perfect') chargeSpeed = 4;
+    else if (precision === 'ok') chargeSpeed = 1.5;
+
     if (state.selectedClass === 'drums') {
-        chargeSpeed = 6;
-    }
-    if (!state.specialActive) {
-        state.specialEnergy = Math.min(100, state.specialEnergy + chargeSpeed);
+        chargeSpeed *= 2.0; // Drums energy generation bonus
     }
     
-    // Push Tug of War left (towards player 0)
-    // Guitarrista Solo hits push more, etc.
-    let pushValue = 1.5;
-    if (precision === 'perfect') pushValue = 2.5;
-    if (state.selectedClass === 'solo') pushValue *= 1.25;
-    adjustTugValue(-pushValue);
+    if (!state.specialActive) {
+        const oldEnergy = state.specialEnergy;
+        state.specialEnergy = Math.min(100, state.specialEnergy + chargeSpeed);
+        
+        // Add combo milestone bonus (+5% every 10 combo hits)
+        if (state.combo > 0 && state.combo % 10 === 0) {
+            state.specialEnergy = Math.min(100, state.specialEnergy + 5);
+        }
+
+        if (oldEnergy < 100 && state.specialEnergy >= 100) {
+            if (DEBUG_DEMO_BATTLE) {
+                console.log("Individual ability charged");
+            }
+        }
+    }
+
+    // Charge Band collective meter
+    if (!state.bandShowtimeActive) {
+        let bandCharge = state.specialActive ? 1.0 : 0.5;
+
+        // Combo bonus
+        if (state.combo >= 40) bandCharge += 5.0;
+        else if (state.combo >= 25) bandCharge += 3.0;
+        else if (state.combo >= 10) bandCharge += 1.5;
+
+        // Hit streak bonus (+5% every 10 notes hit)
+        if (state.notesHit > 0 && state.notesHit % 10 === 0) {
+            bandCharge += 5.0;
+        }
+
+        const oldBandEnergy = state.bandEnergy;
+        state.bandEnergy = Math.min(100, state.bandEnergy + bandCharge);
+        updateBandSpecialUI();
+
+        if (oldBandEnergy < 100 && state.bandEnergy >= 100) {
+            if (DEBUG_DEMO_BATTLE) {
+                console.log("Band Showtime charged");
+            }
+        }
+    }
+    
+    // Push Crowd Dominance (towards player/Red)
+    let basePush = 1.5;
+    if (precision === 'perfect') basePush = 2.5;
+    else if (precision === 'ok') basePush = 0.8;
+
+    let comboMult = 1.0;
+    if (state.combo >= 40) comboMult = 2.0;
+    else if (state.combo >= 25) comboMult = 1.5;
+    else if (state.combo >= 10) comboMult = 1.25;
+
+    let skillMult = state.specialActive ? 2.0 : 1.0;
+    let showtimeMult = state.bandShowtimeActive ? 2.0 : 1.0;
+
+    const maxDominanceMultiplier = 4.0;
+    const finalMult = Math.min(comboMult * skillMult * showtimeMult, maxDominanceMultiplier);
+
+    let pushClassBonus = 1.0;
+    if (state.selectedClass === 'solo') pushClassBonus = 1.25;
+
+    const pushValue = basePush * finalMult * pushClassBonus;
+    adjustDominance(pushValue);
     
     // Trigger effects
     showRhythmFeedback(precision);
@@ -931,6 +1059,12 @@ function triggerMiss(note) {
     note.missed = true;
     state.notesMissed++;
     
+    // Deduct player special energy
+    if (!state.specialActive) {
+        state.specialEnergy = Math.max(0, state.specialEnergy - 10);
+        updateSpecialUI();
+    }
+    
     // Handle Combo Shield (Guitarrista Base)
     if (state.selectedClass === 'rhythm' && state.specialActive && state.comboShieldHits > 0) {
         state.comboShieldHits--;
@@ -942,11 +1076,11 @@ function triggerMiss(note) {
         state.combo = 0;
         showRhythmFeedback('miss');
         
-        // Push Tug of War right (rival gain)
-        // rhythm class reduces loss
+        // Push crowd dominance right (rival gain)
+        // Rhythm class reduces loss
         let pullFactor = 4.0;
-        if (state.selectedClass === 'rhythm') pullFactor = 2.0; // protects team
-        adjustTugValue(pullFactor);
+        if (state.selectedClass === 'rhythm') pullFactor = 2.0;
+        adjustDominance(-pullFactor);
         
         updateComboUI();
     }
@@ -955,11 +1089,28 @@ function triggerMiss(note) {
 }
 
 function triggerSpecialSkill() {
-    if (state.specialEnergy < 100 || state.specialActive) return;
+    if (state.specialEnergy < 100 || state.specialActive || !state.isLoopRunning) return;
     
     state.specialActive = true;
     state.specialEnergy = 0;
+    state.individualAbilityUsed = true;
     
+    if (DEBUG_DEMO_BATTLE) {
+        console.log("Individual ability activated");
+    }
+
+    // Charge Band Energy by +15% immediately
+    if (!state.bandShowtimeActive) {
+        const oldBandEnergy = state.bandEnergy;
+        state.bandEnergy = Math.min(100, state.bandEnergy + 15);
+        updateBandSpecialUI();
+        if (oldBandEnergy < 100 && state.bandEnergy >= 100) {
+            if (DEBUG_DEMO_BATTLE) {
+                console.log("Band Showtime charged");
+            }
+        }
+    }
+
     // Smooth transition to full band video
     els.specialVideo.style.display = 'block';
     els.specialVideo.currentTime = els.bgVideo.currentTime;
@@ -971,39 +1122,22 @@ function triggerSpecialSkill() {
     // Skill overlays & messages
     els.skillOverlay.classList.add('active');
     els.skillBannerText.classList.add('show');
-    
-    const cl = state.selectedClass;
-    let skillText = "SHRED BLITZ!";
-    
-    if (cl === 'solo') {
-        // DPS - points doubled already handled
-        skillText = "SHRED BLITZ (DPS x2 PONTOS!)";
-    } else if (cl === 'rhythm') {
-        // Support - combo protector
-        state.comboShieldHits = 3;
-        skillText = "ESCUDO DE RITMO (PROTEGE COMBO)";
-    } else if (cl === 'bass') {
-        // Defense - freeze rival
-        state.grooveAnchorActive = true;
-        skillText = " Groove Anchor (Bloqueia Inimigo!)";
-    } else if (cl === 'drums') {
-        // Energy - speeds up score push
-        skillText = "OVERDRIVE BEAT (PONTUAÇÃO RAPIDA!)";
-    }
-    
-    els.skillBannerText.innerText = skillText;
+    els.skillBannerText.innerText = "DESTAQUE INDIVIDUAL!";
     
     // Remove banner class after animation ends
     setTimeout(() => {
         els.skillBannerText.classList.remove('show');
     }, 1500);
     
-    // Skill duration timer
+    // Skill duration timer (7 seconds)
     state.specialTimer = setTimeout(() => {
         state.specialActive = false;
         state.grooveAnchorActive = false;
-        els.skillOverlay.classList.remove('active');
+        if (!state.bandShowtimeActive) {
+            els.skillOverlay.classList.remove('active');
+        }
         updateSpecialUI();
+        updateArenaVisuals();
         
         // Restore background video to normal instrument
         els.bgVideo.style.opacity = '1';
@@ -1017,6 +1151,41 @@ function triggerSpecialSkill() {
     }, state.specialDuration);
     
     updateSpecialUI();
+    updateArenaVisuals();
+}
+
+function triggerBandShowtime() {
+    if (state.bandEnergy < 100 || state.bandShowtimeActive || !state.isLoopRunning) return;
+
+    state.bandShowtimeActive = true;
+    state.bandEnergy = 0;
+    state.bandShowtimeUsed = true;
+
+    if (DEBUG_DEMO_BATTLE) {
+        console.log("Band Showtime activated");
+    }
+
+    // Show banner in HUD
+    els.skillOverlay.classList.add('active');
+    els.skillBannerText.classList.add('show');
+    els.skillBannerText.innerText = "SHOWTIME!";
+
+    setTimeout(() => {
+        els.skillBannerText.classList.remove('show');
+    }, 1500);
+
+    // Timer for 10 seconds
+    state.bandShowtimeTimer = setTimeout(() => {
+        state.bandShowtimeActive = false;
+        if (!state.specialActive) {
+            els.skillOverlay.classList.remove('active');
+        }
+        updateBandSpecialUI();
+        updateArenaVisuals();
+    }, 10000);
+
+    updateBandSpecialUI();
+    updateArenaVisuals();
 }
 
 // Keyboard Listeners
@@ -1069,7 +1238,18 @@ window.addEventListener('keydown', (e) => {
     }
     
     if (key === ' ') {
-        triggerSpecialSkill();
+        if (state.isLoopRunning) {
+            e.preventDefault();
+            triggerSpecialSkill();
+        }
+        return;
+    }
+    
+    if (key === 'enter') {
+        if (state.isLoopRunning) {
+            e.preventDefault();
+            triggerBandShowtime();
+        }
         return;
     }
     
@@ -1132,12 +1312,20 @@ function updateGamepadInput() {
         }
     });
     
-    // Special skill activation: L1 / R1
+    // Special skill activation: L1 / R1 (Destaque Individual)
     const specialPressed = currentBtnState[4] || currentBtnState[5]; // L1 or R1
     const specialWasPressed = state.lastGamepadButtonState[4] || state.lastGamepadButtonState[5];
     
     if (specialPressed && !specialWasPressed) {
         triggerSpecialSkill();
+    }
+
+    // Showtime activation: L2 / R2
+    const showtimePressed = currentBtnState[6] || currentBtnState[7]; // L2 or R2
+    const showtimeWasPressed = state.lastGamepadButtonState[6] || state.lastGamepadButtonState[7];
+
+    if (showtimePressed && !showtimeWasPressed) {
+        triggerBandShowtime();
     }
     
     // Keep record of button states
@@ -1151,24 +1339,172 @@ function formatScore(score) {
     return score.toLocaleString('en-US', { minimumIntegerDigits: 6, useGrouping: true });
 }
 
-function adjustTugValue(amount) {
-    state.tugValue = Math.max(0, Math.min(GAME_CFG.maxTugValue, state.tugValue + amount));
+function adjustDominance(amount) {
+    state.crowdDominance = Math.max(0, Math.min(100, state.crowdDominance + amount));
     updateTugOfWarUI();
 }
 
 function updateTugOfWarUI() {
-    // 0 is full Left, 100 is full Right. Adjust the UI marker position.
-    els.tugBarMarker.style.left = `${state.tugValue}%`;
+    // 100 is Player/Red (Jax's Band), 0 is Rival/Blue (Shred Rivals).
+    // The marker is positioned left-to-right (0% left is Red, 100% left is Blue).
+    const markerPosition = 100 - state.crowdDominance;
+    els.tugBarMarker.style.left = `${markerPosition}%`;
     
-    if (state.tugValue < 40) {
+    // Percentage display
+    const redPct = Math.round(state.crowdDominance);
+    const bluePct = 100 - redPct;
+    if (els.tugBarLabel) {
+        els.tugBarLabel.innerText = `VERMELHO: ${redPct}% | AZUL: ${bluePct}%`;
+    }
+
+    if (state.crowdDominance > 55) {
         els.tugStatus.innerText = "DOMÍNIO DA SUA BANDA!";
         els.tugStatus.className = "tug-status-text text-neon-red";
-    } else if (state.tugValue > 60) {
+    } else if (state.crowdDominance < 45) {
         els.tugStatus.innerText = "RIVAIS DOMINANDO!";
         els.tugStatus.className = "tug-status-text text-neon-blue";
     } else {
         els.tugStatus.innerText = "Batalha Equilibrada";
         els.tugStatus.className = "tug-status-text";
+    }
+
+    updateArenaVisuals();
+}
+
+function updateArenaVisuals() {
+    if (!els.arenaDominanceOverlay) return;
+    
+    if (state.currentScreen !== 'game-screen') {
+        els.arenaDominanceOverlay.className = '';
+        return;
+    }
+
+    els.arenaDominanceOverlay.classList.add('active');
+
+    // Remove status classes first
+    els.arenaDominanceOverlay.classList.remove('red-winning', 'blue-winning', 'balanced', 'special-active', 'showtime-active');
+
+    // Priority: Showtime active (strong Red) > Destaque Individual active (Gold) > normal dominance status
+    if (state.bandShowtimeActive) {
+        els.arenaDominanceOverlay.classList.add('showtime-active');
+    } else if (state.specialActive) {
+        els.arenaDominanceOverlay.classList.add('special-active');
+    } else {
+        if (state.crowdDominance > 55) {
+            els.arenaDominanceOverlay.classList.add('red-winning');
+        } else if (state.crowdDominance < 45) {
+            els.arenaDominanceOverlay.classList.add('blue-winning');
+        } else {
+            els.arenaDominanceOverlay.classList.add('balanced');
+        }
+    }
+}
+
+function updateBandSpecialUI() {
+    if (!els.bandBarFill) return;
+    els.bandBarFill.style.width = `${state.bandEnergy}%`;
+
+    if (state.bandShowtimeActive) {
+        els.bandBarFill.classList.add('ready');
+        els.bandBarFill.style.width = '100%';
+        if (els.bandHint) els.bandHint.classList.remove('show');
+    } else if (state.bandEnergy >= 100) {
+        els.bandBarFill.classList.add('ready');
+        if (els.bandHint) els.bandHint.classList.add('show');
+    } else {
+        els.bandBarFill.classList.remove('ready');
+        if (els.bandHint) els.bandHint.classList.remove('show');
+    }
+}
+
+function updateRivalSimulation(matchTime) {
+    if (!state.isLoopRunning || matchTime <= 0.5) return;
+
+    const currentSecond = Math.floor(matchTime);
+    if (currentSecond <= state.rival.lastProcessedSecond) return;
+
+    state.rival.lastProcessedSecond = currentSecond;
+    state.rival.totalNotes++; // simulate one note target per second
+
+    // Scale performance by difficulty
+    let hitChance = 0.88; // Normal default
+    let basePoints = 1000;
+    let baseTugPull = 1.0;
+
+    const difficulty = state.selectedDifficulty || 'normal';
+    if (difficulty === 'easy') {
+        hitChance = 0.80;
+        basePoints = 600;
+        baseTugPull = 0.6;
+    } else if (difficulty === 'normal') {
+        hitChance = 0.88;
+        basePoints = 1000;
+        baseTugPull = 1.0;
+    } else if (difficulty === 'hard') {
+        hitChance = 0.93;
+        basePoints = 1500;
+        baseTugPull = 1.5;
+    } else if (difficulty === 'expert') {
+        hitChance = 0.97;
+        basePoints = 2200;
+        baseTugPull = 2.2;
+    }
+
+    // Performance variation factor (variationFactor between 0.80 and 1.20)
+    // Sine wave over time + slight random variation
+    const variationFactor = 1.0 + 0.15 * Math.sin(currentSecond / 8) + (Math.random() * 0.1 - 0.05);
+    const clampedVariation = Math.max(0.80, Math.min(1.20, variationFactor));
+
+    // Determine if rival hit the note
+    const hit = Math.random() < hitChance;
+
+    if (hit) {
+        state.rival.notesHit++;
+        state.rival.combo++;
+        if (state.rival.combo > state.rival.maxCombo) {
+            state.rival.maxCombo = state.rival.combo;
+        }
+
+        // Rival combo multiplier
+        let rivalMult = 1;
+        if (state.rival.combo >= 40) rivalMult = 4;
+        else if (state.rival.combo >= 25) rivalMult = 3;
+        else if (state.rival.combo >= 10) rivalMult = 2;
+
+        // Points generated
+        const ptsGained = Math.round(basePoints * rivalMult * clampedVariation);
+        state.rivalScore += ptsGained;
+        state.rival.score = state.rivalScore;
+        els.rivalScoreTxt.innerText = formatScore(state.rivalScore);
+
+        // Tug of war pull (decreases dominance, pushing to Blue / Rival)
+        // Groove Anchor reduces rival pull by 50% to 70% (we use 60% reduction -> pull is 40% of normal)
+        let grooveReduction = 1.0;
+        if (state.grooveAnchorActive) {
+            grooveReduction = 0.4;
+        }
+
+        // Showtime reduces rival pull by 60% (pull is 40% of normal)
+        let showtimeReduction = 1.0;
+        if (state.bandShowtimeActive) {
+            showtimeReduction = 0.4;
+        }
+
+        const pullAmount = baseTugPull * clampedVariation * grooveReduction * showtimeReduction;
+        adjustDominance(-pullAmount);
+    } else {
+        // Miss breaks rival combo
+        state.rival.combo = 0;
+    }
+
+    // Recalculate rival accuracy
+    state.rival.accuracy = Math.round((state.rival.notesHit / state.rival.totalNotes) * 100);
+
+    // Logging Crowd dominance
+    if (DEBUG_DEMO_BATTLE) {
+        const redPct = Math.round(state.crowdDominance);
+        const bluePct = 100 - redPct;
+        console.log(`Crowd dominance: Red ${redPct}%, Blue ${bluePct}%`);
     }
 }
 
@@ -1446,8 +1782,8 @@ function drawRhythmFrame() {
 function endGame() {
     stopGameplay();
     
-    // Decide winner (Cabo de guerra bar: <= 50 player wins, > 50 rival wins)
-    const playerWon = state.tugValue <= 50;
+    // Decide winner (Scale: 0 is Blue/Rival, 100 is Red/Player. Red wins if crowdDominance >= 50)
+    const playerWon = state.crowdDominance >= 50;
     
     if (playerWon) {
         els.resultsVerdict.innerText = "VITÓRIA!";
@@ -1464,6 +1800,25 @@ function endGame() {
     document.getElementById('res-rival-score').innerText = formatScore(state.rivalScore);
     document.getElementById('res-accuracy').innerText = `${state.accuracy}%`;
     document.getElementById('res-max-combo').innerText = state.maxCombo;
+    
+    // Demo 01 Stats mapping
+    if (els.resWinnerBand) {
+        els.resWinnerBand.innerText = playerWon ? "Banda Vermelha (Jax's Band)" : "Banda Azul (Shred Rivals)";
+        els.resWinnerBand.className = playerWon ? "stat-value text-neon-red" : "stat-value text-neon-blue";
+    }
+    if (els.resFinalDominance) {
+        els.resFinalDominance.innerText = `Vermelho: ${Math.round(state.crowdDominance)}% | Azul: ${Math.round(100 - state.crowdDominance)}%`;
+    }
+    if (els.resIndSkillUsed) {
+        els.resIndSkillUsed.innerText = state.individualAbilityUsed ? "Sim" : "Não";
+    }
+    if (els.resShowtimeUsed) {
+        els.resShowtimeUsed.innerText = state.bandShowtimeUsed ? "Sim" : "Não";
+    }
+
+    if (DEBUG_DEMO_BATTLE) {
+        console.log(`Final winner: ${playerWon ? "Red" : "Blue"}`);
+    }
     
     showScreen('results-screen');
 }
