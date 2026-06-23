@@ -183,13 +183,13 @@ const specialKeys = {
 
 // Gamepad button map (Standard gamepad)
 const gpadButtons = {
-    0: 14, // Lane 0: D-Pad Left (usually index 14 on standard mappings)
-    1: 13, // Lane 1: D-Pad Down (usually 13)
-    2: 12, // Lane 2: D-Pad Up (usually 12)
-    3: 2,  // Lane 3: Button X / A (usually 0 or 2 depending on layout - mapping Square/X)
-    4: 1,  // Lane 4: Button O / B (usually 1)
-    special: 4, // L1 (button 4) or R1 (button 5)
-    showtime: 6 // L2 (button 6) or R2 (button 7)
+    0: 6,       // Lane 0: L2 / LT (button 6)
+    1: 4,       // Lane 1: L1 / LB (button 4)
+    2: 5,       // Lane 2: R1 / RB (button 5)
+    3: 7,       // Lane 3: R2 / RT (button 7)
+    4: 0,       // Lane 4: A / ✕ (button 0)
+    special: 2, // Destaque Ind.: X / ▢ (button 2)
+    showtime: 1 // Showtime: B / ◯ (button 1)
 };
 
 // Class Metadata
@@ -898,7 +898,7 @@ function updateGameLogic() {
             // Hold energy charge
             if (!state.specialActive) {
                 const oldEnergy = state.specialEnergy;
-                let holdCharge = 0.2;
+                let holdCharge = 0.1;
                 if (state.selectedClass === 'drums') holdCharge *= 2.0;
                 state.specialEnergy = Math.min(100, state.specialEnergy + holdCharge);
                 updateSpecialUI();
@@ -1020,12 +1020,12 @@ function triggerHit(note, precision) {
     if (state.combo > state.maxCombo) state.maxCombo = state.combo;
     
     // Charge Special meter (Individual ability: Destaque Individual)
-    let chargeSpeed = 3; // good default
-    if (precision === 'perfect') chargeSpeed = 4;
-    else if (precision === 'ok') chargeSpeed = 1.5;
+    let chargeSpeed = 1.5; // good default (Good: +1.5%)
+    if (precision === 'perfect') chargeSpeed = 2; // Perfect: +2%
+    else if (precision === 'ok') chargeSpeed = 0.75; // Ok: +0.75%
 
     if (state.selectedClass === 'drums') {
-        chargeSpeed *= 2.0; // Drums energy generation bonus
+        chargeSpeed *= 2.0; // Drums energy generation bonus (Perfect: 4%, Good: 3%, Ok: 1.5%)
     }
     
     if (!state.specialActive) {
@@ -1437,9 +1437,19 @@ function adjustDominance(amount) {
 
 function updateTugOfWarUI() {
     // 100 is Player/Red (Jax's Band), 0 is Rival/Blue (Shred Rivals).
-    // The marker is positioned left-to-right (0% left is Red, 100% left is Blue).
-    const markerPosition = 100 - state.crowdDominance;
-    els.tugBarMarker.style.left = `${markerPosition}%`;
+    // Red (Player) is on the left (0%), Blue (Rival) is on the right (100%).
+    const dominance = state.crowdDominance;
+    
+    if (els.tugBarMarker) {
+        els.tugBarMarker.style.display = 'none';
+    }
+    
+    if (els.tugBarFill) {
+        els.tugBarFill.style.width = '100%';
+        const redEnd = Math.max(0, dominance - 15);
+        const blueStart = Math.min(100, dominance + 15);
+        els.tugBarFill.style.background = `linear-gradient(to right, var(--neon-red) 0%, var(--neon-red) ${redEnd}%, var(--neon-blue) ${blueStart}%, var(--neon-blue) 100%)`;
+    }
     
     // Hide exact percentage display during gameplay
     if (els.tugBarLabel) {

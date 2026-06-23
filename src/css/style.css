@@ -642,37 +642,28 @@ kbd {
 .tug-bar-container {
     position: relative;
     width: 100%;
-    height: 12px;
-    background: #111;
-    border-radius: 6px;
-    overflow: visible;
-    border: 1px solid rgba(255,255,255,0.15);
+    height: 20px;
+    background: var(--neon-blue);
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1.5px solid rgba(255,255,255,0.3);
 }
 
 #tug-bar-fill {
     height: 100%;
-    width: 50%; /* Starts at 50% (neutral) */
+    width: 100%;
     position: absolute;
     left: 0;
-    transition: width 0.15s ease-out;
+    background: linear-gradient(to right, var(--neon-red) 0%, var(--neon-red) 50%, var(--neon-blue) 50%, var(--neon-blue) 100%);
+    border-radius: 10px;
 }
 
 .tug-bar-fill-neutral {
-    background: linear-gradient(to right, var(--neon-red), var(--neon-blue));
+    /* Background gradient replaced by split-color behavior */
 }
 
 .tug-bar-marker {
-    position: absolute;
-    top: -6px;
-    bottom: -6px;
-    left: 50%;
-    width: 6px;
-    background-color: white;
-    box-shadow: 0 0 10px white;
-    border-radius: 3px;
-    z-index: 5;
-    transform: translateX(-50%);
-    transition: left 0.15s ease-out;
+    display: none;
 }
 
 .tug-status-text {
