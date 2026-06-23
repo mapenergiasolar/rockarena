@@ -80,6 +80,7 @@ const state = {
     
     // Crowd Event Messages State
     lastCrowdDominance: 50,
+    currentDominanceSide: 'neutral',
     lastCrowdMessage: '',
     lastCrowdMessageTime: 0,
     lastComboMilestone: 0,
@@ -133,7 +134,9 @@ const els = {
     tugBarLabel: document.querySelector('.tug-bar-label'),
     bandBarFill: document.getElementById('band-bar-fill'),
     bandHint: document.getElementById('band-hint'),
-    arenaDominanceOverlay: document.getElementById('arena-dominance-overlay'),
+    arenaReactionLayer: document.getElementById('arena-reaction-layer'),
+    crowdLightsContainer: document.getElementById('crowd-lights-container'),
+    videoBgContainer: document.getElementById('video-bg-container'),
     resWinnerBand: document.getElementById('res-winner-band'),
     resFinalDominance: document.getElementById('res-final-dominance'),
     resIndSkillUsed: document.getElementById('res-ind-skill-used'),
@@ -1214,6 +1217,15 @@ function triggerBandShowtime() {
     els.skillBannerText.classList.add('show');
     els.skillBannerText.innerText = "SHOWTIME!";
 
+    if (els.videoBgContainer) {
+        els.videoBgContainer.classList.remove('camera-shake');
+        void els.videoBgContainer.offsetWidth;
+        els.videoBgContainer.classList.add('camera-shake');
+        setTimeout(() => {
+            if (els.videoBgContainer) els.videoBgContainer.classList.remove('camera-shake');
+        }, 350);
+    }
+
     setTimeout(() => {
         els.skillBannerText.classList.remove('show');
     }, 1500);
@@ -1471,31 +1483,74 @@ function updateTugOfWarUI() {
 }
 
 function updateArenaVisuals() {
-    if (!els.arenaDominanceOverlay) return;
+    if (!els.arenaReactionLayer || !els.crowdLightsContainer) return;
     
     if (state.currentScreen !== 'game-screen') {
-        els.arenaDominanceOverlay.className = '';
+        els.arenaReactionLayer.className = '';
+        els.crowdLightsContainer.className = '';
         return;
     }
 
-    els.arenaDominanceOverlay.classList.add('active');
+    els.arenaReactionLayer.classList.add('active');
 
     // Remove status classes first
-    els.arenaDominanceOverlay.classList.remove('red-winning', 'blue-winning', 'balanced', 'special-active', 'showtime-active');
+    els.arenaReactionLayer.classList.remove('red-winning', 'red-dominating', 'blue-winning', 'blue-dominating', 'balanced', 'special-active', 'showtime-active');
+    els.crowdLightsContainer.classList.remove('red-winning', 'blue-winning', 'showtime-active');
+    
+    let newSide = 'neutral';
+    if (state.crowdDominance >= 55) newSide = 'player';
+    else if (state.crowdDominance <= 45) newSide = 'rival';
+
+    // Check for turnaround pulse
+    if (newSide !== state.currentDominanceSide) {
+        if (newSide === 'player') triggerReactionPulse('red');
+        else if (newSide === 'rival') triggerReactionPulse('blue');
+        
+        state.currentDominanceSide = newSide;
+    }
 
     // Priority: Showtime active (strong Red) > Destaque Individual active (Gold) > normal dominance status
     if (state.bandShowtimeActive) {
-        els.arenaDominanceOverlay.classList.add('showtime-active');
+        els.arenaReactionLayer.classList.add('showtime-active');
+        els.crowdLightsContainer.classList.add('showtime-active');
     } else if (state.specialActive) {
-        els.arenaDominanceOverlay.classList.add('special-active');
+        els.arenaReactionLayer.classList.add('special-active');
     } else {
-        if (state.crowdDominance > 55) {
-            els.arenaDominanceOverlay.classList.add('red-winning');
-        } else if (state.crowdDominance < 45) {
-            els.arenaDominanceOverlay.classList.add('blue-winning');
+        if (state.crowdDominance >= 65) {
+            els.arenaReactionLayer.classList.add('red-dominating');
+            els.crowdLightsContainer.classList.add('red-winning');
+        } else if (state.crowdDominance >= 55) {
+            els.arenaReactionLayer.classList.add('red-winning');
+            els.crowdLightsContainer.classList.add('red-winning');
+        } else if (state.crowdDominance <= 35) {
+            els.arenaReactionLayer.classList.add('blue-dominating');
+            els.crowdLightsContainer.classList.add('blue-winning');
+        } else if (state.crowdDominance <= 45) {
+            els.arenaReactionLayer.classList.add('blue-winning');
+            els.crowdLightsContainer.classList.add('blue-winning');
         } else {
-            els.arenaDominanceOverlay.classList.add('balanced');
+            els.arenaReactionLayer.classList.add('balanced');
         }
+    }
+}
+
+function triggerReactionPulse(color) {
+    if (!els.arenaReactionLayer) return;
+    const pulseClass = color === 'red' ? 'reaction-pulse-red' : 'reaction-pulse-blue';
+    
+    // Reset animation
+    els.arenaReactionLayer.classList.remove('reaction-pulse-red', 'reaction-pulse-blue');
+    void els.arenaReactionLayer.offsetWidth; // trigger reflow
+    els.arenaReactionLayer.classList.add(pulseClass);
+
+    // Camera shake on background
+    if (els.videoBgContainer) {
+        els.videoBgContainer.classList.remove('camera-shake');
+        void els.videoBgContainer.offsetWidth;
+        els.videoBgContainer.classList.add('camera-shake');
+        setTimeout(() => {
+            if (els.videoBgContainer) els.videoBgContainer.classList.remove('camera-shake');
+        }, 350);
     }
 }
 
