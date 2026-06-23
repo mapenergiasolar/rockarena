@@ -177,7 +177,8 @@ const gpadButtons = {
     2: 12, // Lane 2: D-Pad Up (usually 12)
     3: 2,  // Lane 3: Button X / A (usually 0 or 2 depending on layout - mapping Square/X)
     4: 1,  // Lane 4: Button O / B (usually 1)
-    special: 4 // L1 (button 4) or R1 (button 5)
+    special: 4, // L1 (button 4) or R1 (button 5)
+    showtime: 6 // L2 (button 6) or R2 (button 7)
 };
 
 // Class Metadata
@@ -518,6 +519,7 @@ function showScreen(screenId) {
 // Set active inputs classes
 function selectInputMode(mode) {
     state.inputMode = mode;
+    localStorage.setItem('rockarena_input_mode', mode);
     if (mode === 'keyboard') {
         els.inputKbd.classList.add('active');
         els.inputGpad.classList.remove('active');
@@ -525,6 +527,10 @@ function selectInputMode(mode) {
         els.inputKbd.classList.remove('active');
         els.inputGpad.classList.add('active');
     }
+    if (state.waitingForKeyForLane !== null) {
+        state.waitingForKeyForLane = null;
+    }
+    updateKeybindingsUI();
 }
 
 // Class Card interactions
@@ -1208,6 +1214,10 @@ window.addEventListener('keydown', (e) => {
             return;
         }
         
+        if (state.inputMode !== 'keyboard') {
+            return;
+        }
+        
         const target = state.waitingForKeyForLane;
         
         // Prevent duplicate mapping
@@ -1261,6 +1271,8 @@ window.addEventListener('keydown', (e) => {
         return;
     }
     
+    if (state.inputMode !== 'keyboard') return;
+    
     if (key === specialKeys.individual.key) {
         if (state.isLoopRunning) {
             e.preventDefault();
@@ -1288,6 +1300,7 @@ window.addEventListener('keydown', (e) => {
 
 window.addEventListener('keyup', (e) => {
     if (state.currentScreen !== 'game-screen') return;
+    if (state.inputMode !== 'keyboard') return;
     const key = e.key.toLowerCase();
     for (let i = 0; i < Object.keys(laneKeys).length; i++) {
         if (key === laneKeys[i].key) {
@@ -1318,19 +1331,26 @@ function updateGamepadInput() {
     // Map button triggers on change state
     const currentBtnState = gp.buttons.map(b => b.pressed);
     
+    // Ensure lastGamepadButtonState is at least as long as currentBtnState
+    if (state.lastGamepadButtonState.length < currentBtnState.length) {
+        state.lastGamepadButtonState = Array(currentBtnState.length).fill(false);
+    }
+    
     // Button mapping array check
     // PS5 Standard / Xbox mappings
     const laneButtons = [
-        gpadButtons[0], // Dpad Left
-        gpadButtons[1], // Dpad Down
-        gpadButtons[2], // Dpad Up
-        gpadButtons[3], // A / X button
-        gpadButtons[4]  // B / O button
+        gpadButtons[0], // Lane 0
+        gpadButtons[1], // Lane 1
+        gpadButtons[2], // Lane 2
+        gpadButtons[3], // Lane 3
+        gpadButtons[4]  // Lane 4
     ];
     
     laneButtons.forEach((btnIndex, lane) => {
-        const isPressed = currentBtnState[btnIndex];
-        const wasPressed = state.lastGamepadButtonState[btnIndex];
+        if (btnIndex === undefined || btnIndex === null) return;
+        
+        const isPressed = currentBtnState[btnIndex] || false;
+        const wasPressed = state.lastGamepadButtonState[btnIndex] || false;
         
         if (isPressed && !wasPressed) {
             if (DEBUG_DEMO_BATTLE) {
@@ -1347,26 +1367,32 @@ function updateGamepadInput() {
         }
     });
     
-    // Special skill activation: L1 / R1 (Destaque Individual)
-    const specialPressed = currentBtnState[4] || currentBtnState[5]; // L1 or R1
-    const specialWasPressed = state.lastGamepadButtonState[4] || state.lastGamepadButtonState[5];
-    
-    if (specialPressed && !specialWasPressed) {
-        if (DEBUG_DEMO_BATTLE) {
-            console.log("Gamepad Special Button (L1/R1) pressed");
+    // Special skill activation: (Destaque Individual)
+    const specialBtn = gpadButtons.special;
+    if (specialBtn !== undefined && specialBtn !== null) {
+        const specialPressed = currentBtnState[specialBtn] || false;
+        const specialWasPressed = state.lastGamepadButtonState[specialBtn] || false;
+        
+        if (specialPressed && !specialWasPressed) {
+            if (DEBUG_DEMO_BATTLE) {
+                console.log(`Gamepad Special Button (${specialBtn}) pressed`);
+            }
+            triggerSpecialSkill();
         }
-        triggerSpecialSkill();
     }
 
-    // Showtime activation: L2 / R2
-    const showtimePressed = currentBtnState[6] || currentBtnState[7]; // L2 or R2
-    const showtimeWasPressed = state.lastGamepadButtonState[6] || state.lastGamepadButtonState[7];
+    // Showtime activation: Showtime
+    const showtimeBtn = gpadButtons.showtime;
+    if (showtimeBtn !== undefined && showtimeBtn !== null) {
+        const showtimePressed = currentBtnState[showtimeBtn] || false;
+        const showtimeWasPressed = state.lastGamepadButtonState[showtimeBtn] || false;
 
-    if (showtimePressed && !showtimeWasPressed) {
-        if (DEBUG_DEMO_BATTLE) {
-            console.log("Gamepad Showtime Button (L2/R2) pressed");
+        if (showtimePressed && !showtimeWasPressed) {
+            if (DEBUG_DEMO_BATTLE) {
+                console.log(`Gamepad Showtime Button (${showtimeBtn}) pressed`);
+            }
+            triggerBandShowtime();
         }
-        triggerBandShowtime();
     }
     
     // Keep record of button states
@@ -1865,7 +1891,7 @@ function endGame() {
 }
 
 // ----------------------------------------------------
-// KEYBOARD REBINDING LOGIC
+// KEYBOARD & GAMEPAD REBINDING LOGIC
 // ----------------------------------------------------
 function getKeyDisplayName(key) {
     if (key === ' ') return 'ESPAÇO';
@@ -1873,7 +1899,109 @@ function getKeyDisplayName(key) {
     return key.toUpperCase();
 }
 
+function getGamepadButtonName(index) {
+    if (index === undefined || index === null) return "NÃO MAPEADO";
+    const names = {
+        0: "A / ✕",
+        1: "B / ◯",
+        2: "X / ▢",
+        3: "Y / △",
+        4: "L1 / LB",
+        5: "R1 / RB",
+        6: "L2 / LT",
+        7: "R2 / RT",
+        8: "SHARE",
+        9: "OPTIONS",
+        10: "L3",
+        11: "R3",
+        12: "CIMA",
+        13: "BAIXO",
+        14: "ESQUERDA",
+        15: "DIREITA"
+    };
+    return names[index] !== undefined ? names[index] : `BT ${index}`;
+}
+
+let gamepadRebindInterval = null;
+
+function startGamepadRebindPolling() {
+    if (gamepadRebindInterval) return;
+    
+    let lastButtonStates = {};
+    
+    gamepadRebindInterval = setInterval(() => {
+        if (state.waitingForKeyForLane === null || state.inputMode !== 'gamepad') {
+            clearInterval(gamepadRebindInterval);
+            gamepadRebindInterval = null;
+            return;
+        }
+        
+        const gamepads = navigator.getGamepads();
+        let gp = null;
+        if (gamepads) {
+            for (let i = 0; i < gamepads.length; i++) {
+                if (gamepads[i] && gamepads[i].connected) {
+                    gp = gamepads[i];
+                    break;
+                }
+            }
+        }
+        
+        if (!gp) return;
+        
+        for (let b = 0; b < gp.buttons.length; b++) {
+            const isPressed = gp.buttons[b].pressed;
+            const wasPressed = lastButtonStates[b] || false;
+            lastButtonStates[b] = isPressed;
+            
+            if (isPressed && !wasPressed) {
+                const target = state.waitingForKeyForLane;
+                
+                let alreadyBound = false;
+                for (let i = 0; i < 5; i++) {
+                    if (target !== i && gpadButtons[i] === b) {
+                        alreadyBound = true;
+                    }
+                }
+                if (target !== 'special_individual' && gpadButtons.special === b) {
+                    alreadyBound = true;
+                }
+                if (target !== 'special_band' && gpadButtons.showtime === b) {
+                    alreadyBound = true;
+                }
+                
+                if (alreadyBound) {
+                    alert(`O botão '${getGamepadButtonName(b)}' já está mapeado!`);
+                    state.waitingForKeyForLane = null;
+                    updateKeybindingsUI();
+                    return;
+                }
+                
+                if (typeof target === 'number') {
+                    gpadButtons[target] = b;
+                    localStorage.setItem(`rockarena_gpad_${target}`, b);
+                } else if (target === 'special_individual') {
+                    gpadButtons.special = b;
+                    localStorage.setItem(`rockarena_gpad_special`, b);
+                } else if (target === 'special_band') {
+                    gpadButtons.showtime = b;
+                    localStorage.setItem(`rockarena_gpad_showtime`, b);
+                }
+                
+                state.waitingForKeyForLane = null;
+                updateKeybindingsUI();
+                
+                if (DEBUG_DEMO_BATTLE) {
+                    console.log(`Gamepad Button Rebound: mapped ${target} to button index ${b}`);
+                }
+                return;
+            }
+        }
+    }, 30);
+}
+
 function loadKeybindings() {
+    // Keyboard key bindings
     for (let i = 0; i < 5; i++) {
         const savedKey = localStorage.getItem(`rockarena_key_${i}`);
         if (savedKey) {
@@ -1888,31 +2016,83 @@ function loadKeybindings() {
     if (savedSpecialBand) {
         specialKeys.band.key = savedSpecialBand;
     }
+
+    // Gamepad button bindings
+    for (let i = 0; i < 5; i++) {
+        const savedGpad = localStorage.getItem(`rockarena_gpad_${i}`);
+        if (savedGpad !== null) {
+            gpadButtons[i] = parseInt(savedGpad);
+        }
+    }
+    const savedGpadSpecial = localStorage.getItem('rockarena_gpad_special');
+    if (savedGpadSpecial !== null) {
+        gpadButtons.special = parseInt(savedGpadSpecial);
+    }
+    const savedGpadShowtime = localStorage.getItem('rockarena_gpad_showtime');
+    if (savedGpadShowtime !== null) {
+        gpadButtons.showtime = parseInt(savedGpadShowtime);
+    }
+
+    // Restore input mode
+    const savedInputMode = localStorage.getItem('rockarena_input_mode');
+    if (savedInputMode) {
+        state.inputMode = savedInputMode;
+        if (savedInputMode === 'keyboard') {
+            els.inputKbd.classList.add('active');
+            els.inputGpad.classList.remove('active');
+        } else {
+            els.inputKbd.classList.remove('active');
+            els.inputGpad.classList.add('active');
+        }
+    } else {
+        state.inputMode = 'keyboard';
+        els.inputKbd.classList.add('active');
+        els.inputGpad.classList.remove('active');
+    }
+
     updateKeybindingsUI();
 }
 
 function updateKeybindingsUI() {
+    const isGamepad = (state.inputMode === 'gamepad');
     for (let i = 0; i < 5; i++) {
-        const key = laneKeys[i].key.toUpperCase();
+        let display = "";
+        if (isGamepad) {
+            display = getGamepadButtonName(gpadButtons[i]);
+        } else {
+            display = laneKeys[i].key.toUpperCase();
+        }
+        
         const bindEl = document.getElementById(`bind-${i}`);
         if (bindEl) {
-            bindEl.innerText = key;
+            bindEl.innerText = display;
         }
+        
         const targetEl = laneKeys[i].targetEl;
         if (targetEl) {
             const hintEl = targetEl.querySelector('.key-hint');
             if (hintEl) {
-                hintEl.innerText = key;
+                hintEl.innerText = display;
             }
         }
     }
+    
     const bindSpecialIndEl = document.getElementById('bind-special-ind');
     if (bindSpecialIndEl) {
-        bindSpecialIndEl.innerText = getKeyDisplayName(specialKeys.individual.key);
+        if (isGamepad) {
+            bindSpecialIndEl.innerText = getGamepadButtonName(gpadButtons.special);
+        } else {
+            bindSpecialIndEl.innerText = getKeyDisplayName(specialKeys.individual.key);
+        }
     }
+    
     const bindSpecialBandEl = document.getElementById('bind-special-band');
     if (bindSpecialBandEl) {
-        bindSpecialBandEl.innerText = getKeyDisplayName(specialKeys.band.key);
+        if (isGamepad) {
+            bindSpecialBandEl.innerText = getGamepadButtonName(gpadButtons.showtime);
+        } else {
+            bindSpecialBandEl.innerText = getKeyDisplayName(specialKeys.band.key);
+        }
     }
 }
 
@@ -1925,6 +2105,8 @@ document.querySelectorAll('.keybind-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
         e.stopPropagation();
         
+        const isGamepad = (state.inputMode === 'gamepad');
+        
         // Reset all keybind buttons' visual states and text content
         document.querySelectorAll('.keybind-btn').forEach(b => {
             b.classList.remove('waiting');
@@ -1934,9 +2116,13 @@ document.querySelectorAll('.keybind-btn').forEach(btn => {
             if (strongEl) {
                 if (laneAttr !== null) {
                     const laneIndex = parseInt(laneAttr);
-                    strongEl.innerText = getKeyDisplayName(laneKeys[laneIndex].key);
+                    strongEl.innerText = isGamepad ? getGamepadButtonName(gpadButtons[laneIndex]) : getKeyDisplayName(laneKeys[laneIndex].key);
                 } else if (specialAttr !== null) {
-                    strongEl.innerText = getKeyDisplayName(specialKeys[specialAttr].key);
+                    if (specialAttr === 'individual') {
+                        strongEl.innerText = isGamepad ? getGamepadButtonName(gpadButtons.special) : getKeyDisplayName(specialKeys.individual.key);
+                    } else if (specialAttr === 'band') {
+                        strongEl.innerText = isGamepad ? getGamepadButtonName(gpadButtons.showtime) : getKeyDisplayName(specialKeys.band.key);
+                    }
                 }
             }
         });
@@ -1954,6 +2140,10 @@ document.querySelectorAll('.keybind-btn').forEach(btn => {
         const strongEl = btn.querySelector('strong');
         if (strongEl) {
             strongEl.innerText = '...';
+        }
+        
+        if (isGamepad) {
+            startGamepadRebindPolling();
         }
     });
 });
