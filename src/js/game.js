@@ -1303,7 +1303,15 @@ function updateGamepadInput() {
     if (state.inputMode !== 'gamepad') return;
     
     const gamepads = navigator.getGamepads();
-    const gp = gamepads[0] || gamepads[1] || gamepads[2] || gamepads[3];
+    let gp = null;
+    if (gamepads) {
+        for (let i = 0; i < gamepads.length; i++) {
+            if (gamepads[i] && gamepads[i].connected) {
+                gp = gamepads[i];
+                break;
+            }
+        }
+    }
     
     if (!gp) return;
     
