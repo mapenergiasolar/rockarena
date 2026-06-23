@@ -164,6 +164,12 @@ const laneKeys = {
     4: { key: 'l', color: '#ff7700', targetEl: document.getElementById('target-4') }
 };
 
+// Key configurations for special skills
+const specialKeys = {
+    individual: { key: ' ' },
+    band: { key: 'enter' }
+};
+
 // Gamepad button map (Standard gamepad)
 const gpadButtons = {
     0: 14, // Lane 0: D-Pad Left (usually index 14 on standard mappings)
@@ -1190,38 +1196,56 @@ function triggerBandShowtime() {
 
 // Keyboard Listeners
 window.addEventListener('keydown', (e) => {
-    // Check if we are waiting to map a key for a lane
+    // Check if we are waiting to map a key for a lane or special
     if (state.waitingForKeyForLane !== null) {
         e.preventDefault();
         const key = e.key.toLowerCase();
         
-        // Prevent system/reserved keys
-        if (key === 'escape' || key === ' ' || key === 'enter') {
-            alert('Esta tecla é reservada para funções do sistema!');
+        // Prevent escape (reserved to cancel/exit)
+        if (key === 'escape') {
             state.waitingForKeyForLane = null;
             updateKeybindingsUI();
             return;
         }
         
-        const lane = state.waitingForKeyForLane;
+        const target = state.waitingForKeyForLane;
         
         // Prevent duplicate mapping
         let alreadyBound = false;
+        
+        // Check lanes
         for (let i = 0; i < 5; i++) {
-            if (i !== lane && laneKeys[i].key === key) {
+            if (target !== i && laneKeys[i].key === key) {
                 alreadyBound = true;
             }
         }
+        // Check specials
+        if (target !== 'special_individual' && specialKeys.individual.key === key) {
+            alreadyBound = true;
+        }
+        if (target !== 'special_band' && specialKeys.band.key === key) {
+            alreadyBound = true;
+        }
+        
         if (alreadyBound) {
-            alert(`A tecla '${key.toUpperCase()}' já está mapeada para outra faixa!`);
+            alert(`A tecla '${key === ' ' ? 'ESPAÇO' : key.toUpperCase()}' já está mapeada!`);
             state.waitingForKeyForLane = null;
             updateKeybindingsUI();
             return;
         }
         
         // Assign new key, persist, and update UI
-        laneKeys[lane].key = key;
-        localStorage.setItem(`rockarena_key_${lane}`, key);
+        if (typeof target === 'number') {
+            laneKeys[target].key = key;
+            localStorage.setItem(`rockarena_key_${target}`, key);
+        } else if (target === 'special_individual') {
+            specialKeys.individual.key = key;
+            localStorage.setItem(`rockarena_key_special_individual`, key);
+        } else if (target === 'special_band') {
+            specialKeys.band.key = key;
+            localStorage.setItem(`rockarena_key_special_band`, key);
+        }
+        
         updateKeybindingsUI();
         state.waitingForKeyForLane = null;
         return;
@@ -1237,7 +1261,7 @@ window.addEventListener('keydown', (e) => {
         return;
     }
     
-    if (key === ' ') {
+    if (key === specialKeys.individual.key) {
         if (state.isLoopRunning) {
             e.preventDefault();
             triggerSpecialSkill();
@@ -1245,7 +1269,7 @@ window.addEventListener('keydown', (e) => {
         return;
     }
     
-    if (key === 'enter') {
+    if (key === specialKeys.band.key) {
         if (state.isLoopRunning) {
             e.preventDefault();
             triggerBandShowtime();
@@ -1826,12 +1850,26 @@ function endGame() {
 // ----------------------------------------------------
 // KEYBOARD REBINDING LOGIC
 // ----------------------------------------------------
+function getKeyDisplayName(key) {
+    if (key === ' ') return 'ESPAÇO';
+    if (key === 'enter') return 'ENTER';
+    return key.toUpperCase();
+}
+
 function loadKeybindings() {
     for (let i = 0; i < 5; i++) {
         const savedKey = localStorage.getItem(`rockarena_key_${i}`);
         if (savedKey) {
             laneKeys[i].key = savedKey;
         }
+    }
+    const savedSpecialInd = localStorage.getItem('rockarena_key_special_individual');
+    if (savedSpecialInd) {
+        specialKeys.individual.key = savedSpecialInd;
+    }
+    const savedSpecialBand = localStorage.getItem('rockarena_key_special_band');
+    if (savedSpecialBand) {
+        specialKeys.band.key = savedSpecialBand;
     }
     updateKeybindingsUI();
 }
@@ -1851,6 +1889,14 @@ function updateKeybindingsUI() {
             }
         }
     }
+    const bindSpecialIndEl = document.getElementById('bind-special-ind');
+    if (bindSpecialIndEl) {
+        bindSpecialIndEl.innerText = getKeyDisplayName(specialKeys.individual.key);
+    }
+    const bindSpecialBandEl = document.getElementById('bind-special-band');
+    if (bindSpecialBandEl) {
+        bindSpecialBandEl.innerText = getKeyDisplayName(specialKeys.band.key);
+    }
 }
 
 // ----------------------------------------------------
@@ -1858,20 +1904,35 @@ function updateKeybindingsUI() {
 // ----------------------------------------------------
 
 // Keybind Buttons click listeners
-els.keybindBtns.forEach(btn => {
+document.querySelectorAll('.keybind-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
         e.stopPropagation();
         
         // Reset all keybind buttons' visual states and text content
-        els.keybindBtns.forEach(b => {
+        document.querySelectorAll('.keybind-btn').forEach(b => {
             b.classList.remove('waiting');
-            const laneIndex = parseInt(b.getAttribute('data-lane'));
+            const laneAttr = b.getAttribute('data-lane');
+            const specialAttr = b.getAttribute('data-special');
             const strongEl = b.querySelector('strong');
-            if (strongEl) strongEl.innerText = laneKeys[laneIndex].key.toUpperCase();
+            if (strongEl) {
+                if (laneAttr !== null) {
+                    const laneIndex = parseInt(laneAttr);
+                    strongEl.innerText = getKeyDisplayName(laneKeys[laneIndex].key);
+                } else if (specialAttr !== null) {
+                    strongEl.innerText = getKeyDisplayName(specialKeys[specialAttr].key);
+                }
+            }
         });
         
-        const lane = parseInt(btn.getAttribute('data-lane'));
-        state.waitingForKeyForLane = lane;
+        const laneAttr = btn.getAttribute('data-lane');
+        const specialAttr = btn.getAttribute('data-special');
+        
+        if (laneAttr !== null) {
+            state.waitingForKeyForLane = parseInt(laneAttr);
+        } else if (specialAttr !== null) {
+            state.waitingForKeyForLane = `special_${specialAttr}`;
+        }
+        
         btn.classList.add('waiting');
         const strongEl = btn.querySelector('strong');
         if (strongEl) {
@@ -1898,7 +1959,17 @@ els.calibrationTapBtn.addEventListener('click', handleCalibrationTap);
 
 // Input type toggle buttons
 els.inputKbd.addEventListener('click', () => selectInputMode('keyboard'));
-els.inputGpad.addEventListener('click', () => selectInputMode('gamepad'));
+els.inputGpad.addEventListener('click', () => {
+    selectInputMode('gamepad');
+    
+    // Check for active gamepads to help user debug connection
+    const gamepads = navigator.getGamepads();
+    const hasActiveGamepad = Array.from(gamepads).some(gp => gp !== null);
+    if (!hasActiveGamepad) {
+        console.warn("[Xbox/PS5] Nenhum controle detectado no navegador ainda. Certifique-se de conectar o controle e pressionar qualquer botão nele para que o navegador o reconheça.");
+        alert("Aviso: Nenhum controle de Xbox/PS5 foi detectado ainda pelo navegador.\n\nPara que o navegador reconheça seu controle, você deve conectá-lo ao PC E pressionar qualquer botão no controle com esta página aberta. Tente fazer isso e selecione 'Controle' novamente!");
+    }
+});
 
 // Menu Screen navigation
 els.btnStartGame.addEventListener('click', () => {
