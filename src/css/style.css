@@ -1384,7 +1384,7 @@ kbd {
     box-shadow: 0 0 10px var(--neon-red-glow);
 }
 
-/* ARENA REACTION LAYER & GLOWS (Demo 02) */
+/* ARENA REACTION LAYER & GLOWS (Demo 02 Fix) */
 #arena-reaction-layer {
     position: absolute;
     top: 0;
@@ -1402,35 +1402,35 @@ kbd {
     opacity: 1;
 }
 
-/* Base dominance intensities */
+/* Lateral Vignette Dominance intensities */
 #arena-reaction-layer.red-winning {
-    background: radial-gradient(circle, rgba(255, 51, 102, 0) 40%, rgba(255, 51, 102, 0.16) 100%);
+    background: linear-gradient(90deg, rgba(255, 51, 102, 0.25) 0%, rgba(255, 51, 102, 0) 30%, rgba(255, 51, 102, 0) 70%, rgba(255, 51, 102, 0.25) 100%);
 }
 
 #arena-reaction-layer.red-dominating {
-    background: radial-gradient(circle, rgba(255, 51, 102, 0) 30%, rgba(255, 51, 102, 0.20) 100%);
+    background: linear-gradient(90deg, rgba(255, 51, 102, 0.35) 0%, rgba(255, 51, 102, 0) 40%, rgba(255, 51, 102, 0) 60%, rgba(255, 51, 102, 0.35) 100%);
 }
 
 #arena-reaction-layer.blue-winning {
-    background: radial-gradient(circle, rgba(0, 204, 255, 0) 40%, rgba(0, 204, 255, 0.16) 100%);
+    background: linear-gradient(90deg, rgba(0, 204, 255, 0.25) 0%, rgba(0, 204, 255, 0) 30%, rgba(0, 204, 255, 0) 70%, rgba(0, 204, 255, 0.25) 100%);
 }
 
 #arena-reaction-layer.blue-dominating {
-    background: radial-gradient(circle, rgba(0, 204, 255, 0) 30%, rgba(0, 204, 255, 0.20) 100%);
+    background: linear-gradient(90deg, rgba(0, 204, 255, 0.35) 0%, rgba(0, 204, 255, 0) 40%, rgba(0, 204, 255, 0) 60%, rgba(0, 204, 255, 0.35) 100%);
 }
 
 #arena-reaction-layer.balanced {
-    background: linear-gradient(90deg, rgba(255, 51, 102, 0.08) 0%, rgba(0, 204, 255, 0.08) 100%);
+    background: linear-gradient(90deg, rgba(255, 51, 102, 0.15) 0%, rgba(255, 51, 102, 0) 30%, rgba(0, 204, 255, 0) 70%, rgba(0, 204, 255, 0.15) 100%);
 }
 
 /* Skills */
 #arena-reaction-layer.special-active {
-    background: radial-gradient(circle, rgba(255, 204, 0, 0.05) 30%, rgba(255, 204, 0, 0.25) 100%) !important;
+    background: radial-gradient(circle, rgba(255, 204, 0, 0.15) 30%, rgba(255, 204, 0, 0.5) 100%) !important;
     animation: arenaSpecialPulse 2s infinite alternate;
 }
 
 #arena-reaction-layer.showtime-active {
-    background: radial-gradient(circle, rgba(255, 51, 102, 0.1) 20%, rgba(255, 51, 102, 0.30) 100%) !important;
+    background: radial-gradient(circle, rgba(255, 51, 102, 0.25) 20%, rgba(255, 51, 102, 0.45) 100%) !important;
     animation: arenaShowtimePulse 0.5s infinite alternate;
 }
 
@@ -1444,27 +1444,27 @@ kbd {
     to { opacity: 1.0; }
 }
 
-/* TURNAROUND PULSE (300-500ms) */
+/* TURNAROUND PULSE (400-600ms) */
 .reaction-pulse-red {
-    animation: turnaroundPulseRed 0.4s ease-out;
+    animation: turnaroundPulseRed 0.5s ease-out;
 }
 .reaction-pulse-blue {
-    animation: turnaroundPulseBlue 0.4s ease-out;
+    animation: turnaroundPulseBlue 0.5s ease-out;
 }
 
 @keyframes turnaroundPulseRed {
-    0% { background: rgba(255, 51, 102, 0.4); opacity: 1; }
+    0% { background: rgba(255, 51, 102, 0.6); opacity: 1; }
     100% { background: transparent; }
 }
 
 @keyframes turnaroundPulseBlue {
-    0% { background: rgba(0, 204, 255, 0.4); opacity: 1; }
+    0% { background: rgba(0, 204, 255, 0.6); opacity: 1; }
     100% { background: transparent; }
 }
 
-/* CAMERA SHAKE (Only applied to bg layers, NOT highway) */
+/* CAMERA SHAKE */
 .camera-shake {
-    animation: cameraShakeAnim 0.3s cubic-bezier(.36,.07,.19,.97) both;
+    animation: cameraShakeAnim 0.35s cubic-bezier(.36,.07,.19,.97) both;
 }
 
 @keyframes cameraShakeAnim {
@@ -1475,32 +1475,61 @@ kbd {
     80% { transform: translate(1px, -1px); }
 }
 
-/* CROWD LIGHTS CONTAINER */
+/* CROWD LIGHTS CONTAINER - Upgraded */
 #crowd-lights-container {
     position: absolute;
     bottom: 0;
     left: 0;
     width: 100%;
-    height: 50%;
+    height: 40%;
     pointer-events: none;
     z-index: 2; /* In front of video/reaction, behind highway */
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
-    padding: 0 5%;
-    opacity: 0.6;
-    transition: opacity 0.5s ease;
+    opacity: 0.8;
+    transition: opacity 0.5s ease, box-shadow 0.5s ease;
+}
+
+/* Visible light beams from the bottom */
+#crowd-lights-container::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-size: 50px 100%;
+    opacity: 0.5;
+    mix-blend-mode: screen;
+    mask-image: linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%);
+    -webkit-mask-image: linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%);
+    transition: background-image 0.5s ease;
 }
 
 #crowd-lights-container.red-winning {
-    box-shadow: inset 0 -50px 100px -50px rgba(255, 51, 102, 0.5);
+    box-shadow: inset 0 -60px 120px -30px rgba(255, 51, 102, 0.8);
 }
+#crowd-lights-container.red-winning::after {
+    background-image: repeating-linear-gradient(90deg, transparent 0, transparent 20px, rgba(255, 51, 102, 0.4) 20px, rgba(255, 51, 102, 0.4) 40px);
+}
+
 #crowd-lights-container.blue-winning {
-    box-shadow: inset 0 -50px 100px -50px rgba(0, 204, 255, 0.5);
+    box-shadow: inset 0 -60px 120px -30px rgba(0, 204, 255, 0.8);
 }
+#crowd-lights-container.blue-winning::after {
+    background-image: repeating-linear-gradient(90deg, transparent 0, transparent 20px, rgba(0, 204, 255, 0.4) 20px, rgba(0, 204, 255, 0.4) 40px);
+}
+
 #crowd-lights-container.showtime-active {
-    box-shadow: inset 0 -100px 150px -50px rgba(255, 51, 102, 0.8);
-    opacity: 0.9;
+    box-shadow: inset 0 -120px 200px -40px rgba(255, 51, 102, 1);
+    opacity: 1;
+}
+#crowd-lights-container.showtime-active::after {
+    background-image: repeating-linear-gradient(90deg, transparent 0, transparent 15px, rgba(255, 51, 102, 0.6) 15px, rgba(255, 51, 102, 0.6) 30px);
+    animation: flashBeams 0.5s infinite alternate;
+}
+
+@keyframes flashBeams {
+    from { opacity: 0.4; }
+    to { opacity: 0.8; }
 }
 
 /* BAND COLLECTIVE ENERGY BAR */
@@ -1604,3 +1633,12 @@ kbd {
     font-weight: 900;
 }
 
+/* GAMEPAD NAV FOCUS */
+.gamepad-focus {
+    box-shadow: 0 0 15px var(--neon-blue), inset 0 0 10px var(--neon-blue) !important;
+    border-color: var(--neon-blue) !important;
+    transform: scale(1.03) !important;
+    outline: none !important;
+    z-index: 10;
+    transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}

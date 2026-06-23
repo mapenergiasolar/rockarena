@@ -84,12 +84,21 @@ const state = {
     lastCrowdMessage: '',
     lastCrowdMessageTime: 0,
     lastComboMilestone: 0,
+    lastVisualStateLogged: '',
     lastCombo: 0,
     neutralZoneStartTime: null,
     wasIndividualAbilityActive: false,
     wasShowtimeActive: false,
     crowdMessageTimeout: null,
     
+    // Menu Gamepad State
+    menuGamepadState: {
+        focusIndex: 0,
+        elements: [],
+        lastInputTime: 0,
+        cooldown: 200
+    },
+
     // Audio / Video refs
     songDuration: 30, // seconds fallback
     isMuted: false,
@@ -197,11 +206,56 @@ const gpadButtons = {
 
 // Class Metadata
 const classesMetadata = {
-    solo: { name: 'Guitarrista Solo', role: 'DPS', color: varColor('--neon-red') },
-    rhythm: { name: 'Guitarrista Base', role: 'SUPORTE', color: varColor('--neon-green') },
-    bass: { name: 'Baixista', role: 'DEFESA', color: varColor('--neon-blue') },
-    drums: { name: 'Baterista', role: 'ENERGIA', color: varColor('--neon-yellow') }
+    solo: { name: 'Guitarrista Solo', role: 'Ataque', color: varColor('--neon-red') },
+    rhythm: { name: 'Guitarrista Base', role: 'Defesa', color: varColor('--neon-green') },
+    bass: { name: 'Baixista', role: 'Controle', color: varColor('--neon-blue') },
+    drums: { name: 'Baterista', role: 'Energia', color: varColor('--neon-yellow') }
 };
+
+const INSTRUMENT_ABILITIES = {
+    solo: {
+        role: 'Ataque',
+        name: 'Solo Incendiário',
+        message: 'SOLO INCENDIÁRIO! A guitarra solo rasgou a arena!',
+        type: 'attack',
+        dominanceGainMultiplier: 2.0
+    },
+    rhythm: {
+        role: 'Defesa',
+        name: 'Parede Sonora',
+        message: 'PAREDE SONORA! A base segurou a pressão!',
+        type: 'defense',
+        missDominancePenaltyMultiplier: 0.60,
+        missEnergyPenaltyMultiplier: 0.60,
+        dominanceGainMultiplier: 1.25
+    },
+    bass: {
+        role: 'Controle',
+        name: 'Groove Profundo',
+        message: 'GROOVE PROFUNDO! O baixo travou a rival!',
+        type: 'control',
+        rivalPullReduction: 0.60
+    },
+    drums: {
+        role: 'Energia',
+        name: 'Ritmo de Guerra',
+        message: 'RITMO DE GUERRA! A bateria levantou a banda!',
+        type: 'energy',
+        bandEnergyGainMultiplier: 1.5,
+        bandEnergyBonusOnActivation: 15,
+        dominanceGainMultiplier: 1.15
+    }
+};
+
+function getCurrentInstrumentAbility() {
+    const defaultAbility = {
+        role: 'Padrão',
+        name: 'Destaque Individual',
+        message: 'Destaque ativado!',
+        type: 'generic'
+    };
+    return INSTRUMENT_ABILITIES[state.selectedClass] || defaultAbility;
+}
 
 function varColor(cssVarName) {
     return getComputedStyle(document.documentElement).getPropertyValue(cssVarName).trim() || '#ffffff';
@@ -528,6 +582,12 @@ function showScreen(screenId) {
         els.bgVideo.load();
         els.bgVideo.play().catch(e => console.log("Autoplay blocked."));
     }
+    
+    if (typeof state.menuGamepadState !== 'undefined') {
+        state.menuGamepadState.focusIndex = 0;
+        // Wait a small tick so DOM is fully visible before finding elements
+        setTimeout(() => { if(typeof updateMenuGamepadFocus === 'function') updateMenuGamepadFocus(); }, 50);
+    }
 }
 
 // Set active inputs classes
@@ -708,6 +768,11 @@ function startGameplay() {
     els.hudClassName.style.color = classMeta.color;
     els.hudClassRole.innerText = classMeta.role;
     els.hudClassRole.style.color = classMeta.color;
+    
+    const hudClassSpecial = document.getElementById('hud-class-special');
+    if (hudClassSpecial) {
+        hudClassSpecial.innerText = "Especial: " + getCurrentInstrumentAbility().name;
+    }
     
     // Generate Chart specific to class
     state.notes = generateClassChart(state.selectedClass);
@@ -1051,6 +1116,11 @@ function triggerHit(note, precision) {
     if (!state.bandShowtimeActive) {
         let bandCharge = state.specialActive ? 1.0 : 0.5;
 
+        if (state.specialActive) {
+            const ability = getCurrentInstrumentAbility();
+            bandCharge *= (ability.bandEnergyGainMultiplier || 1.0);
+        }
+
         // Combo bonus
         if (state.combo >= 40) bandCharge += 5.0;
         else if (state.combo >= 25) bandCharge += 3.0;
@@ -1089,7 +1159,10 @@ function triggerHit(note, precision) {
     const finalMult = Math.min(comboMult * skillMult * showtimeMult, maxDominanceMultiplier);
 
     let pushClassBonus = 1.0;
-    if (state.selectedClass === 'solo') pushClassBonus = 1.25;
+    if (state.specialActive) {
+        const ability = getCurrentInstrumentAbility();
+        pushClassBonus = ability.dominanceGainMultiplier || 1.0;
+    }
 
     const pushValue = basePush * finalMult * pushClassBonus;
     adjustDominance(pushValue);
@@ -1112,26 +1185,19 @@ function triggerMiss(note) {
         updateSpecialUI();
     }
     
-    // Handle Combo Shield (Guitarrista Base)
-    if (state.selectedClass === 'rhythm' && state.specialActive && state.comboShieldHits > 0) {
-        state.comboShieldHits--;
-        // Shield absorbs the combo break!
-        showRhythmFeedback('shield');
-        spawnHitParticles(note.lane, 'shield');
-    } else {
-        // Normal combo break
-        state.combo = 0;
-        showRhythmFeedback('miss');
-        
-        // Push crowd dominance right (rival gain)
-        // Rhythm class reduces loss
-        let pullFactor = 4.0;
-        if (state.selectedClass === 'rhythm') pullFactor = 2.0;
-        adjustDominance(-pullFactor);
-        
-        updateComboUI();
-    }
+    // Normal combo break
+    state.combo = 0;
+    showRhythmFeedback('miss');
     
+    // Push crowd dominance right (rival gain)
+    let pullFactor = 4.0;
+    if (state.specialActive) {
+        const ability = getCurrentInstrumentAbility();
+        pullFactor *= (ability.missDominancePenaltyMultiplier || 1.0);
+    }
+    adjustDominance(-pullFactor);
+    
+    updateComboUI();
     calculateAccuracy();
 }
 
@@ -1142,20 +1208,31 @@ function triggerSpecialSkill() {
     state.specialEnergy = 0;
     state.individualAbilityUsed = true;
     
+    const ability = getCurrentInstrumentAbility();
+
     if (DEBUG_DEMO_BATTLE) {
-        console.log("Individual ability activated");
+        console.log(`Instrument ability activated: ${ability.name}`);
     }
 
-    // Charge Band Energy by +15% immediately
-    if (!state.bandShowtimeActive) {
+    if (state.selectedClass === 'drums' && !state.bandShowtimeActive) {
+        const oldBandEnergy = state.bandEnergy;
+        const bonus = ability.bandEnergyBonusOnActivation || 20;
+        state.bandEnergy = Math.min(100, state.bandEnergy + bonus);
+        updateBandSpecialUI();
+        if (oldBandEnergy < 100 && state.bandEnergy >= 100 && DEBUG_DEMO_BATTLE) {
+            console.log("Band Showtime charged");
+        }
+    } else if (!state.bandShowtimeActive) {
         const oldBandEnergy = state.bandEnergy;
         state.bandEnergy = Math.min(100, state.bandEnergy + 15);
         updateBandSpecialUI();
-        if (oldBandEnergy < 100 && state.bandEnergy >= 100) {
-            if (DEBUG_DEMO_BATTLE) {
-                console.log("Band Showtime charged");
-            }
+        if (oldBandEnergy < 100 && state.bandEnergy >= 100 && DEBUG_DEMO_BATTLE) {
+            console.log("Band Showtime charged");
         }
+    }
+
+    if (typeof showCrowdEventMessage === 'function') {
+        showCrowdEventMessage(ability.message, 'gold', true);
     }
 
     // Smooth transition to full band video
@@ -1485,7 +1562,7 @@ function updateTugOfWarUI() {
 function updateArenaVisuals() {
     if (!els.arenaReactionLayer || !els.crowdLightsContainer) return;
     
-    if (state.currentScreen !== 'game-screen') {
+    if (state.currentScreen !== 'game-screen' && !window.RAArenaVisualDebugActive) {
         els.arenaReactionLayer.className = '';
         els.crowdLightsContainer.className = '';
         return;
@@ -1509,28 +1586,42 @@ function updateArenaVisuals() {
         state.currentDominanceSide = newSide;
     }
 
+    let visualStateLog = '';
+
     // Priority: Showtime active (strong Red) > Destaque Individual active (Gold) > normal dominance status
     if (state.bandShowtimeActive) {
         els.arenaReactionLayer.classList.add('showtime-active');
         els.crowdLightsContainer.classList.add('showtime-active');
+        visualStateLog = 'showtime';
     } else if (state.specialActive) {
         els.arenaReactionLayer.classList.add('special-active');
+        visualStateLog = 'special';
     } else {
         if (state.crowdDominance >= 65) {
             els.arenaReactionLayer.classList.add('red-dominating');
             els.crowdLightsContainer.classList.add('red-winning');
+            visualStateLog = 'red-winning (dominating)';
         } else if (state.crowdDominance >= 55) {
             els.arenaReactionLayer.classList.add('red-winning');
             els.crowdLightsContainer.classList.add('red-winning');
+            visualStateLog = 'red-winning';
         } else if (state.crowdDominance <= 35) {
             els.arenaReactionLayer.classList.add('blue-dominating');
             els.crowdLightsContainer.classList.add('blue-winning');
+            visualStateLog = 'blue-winning (dominating)';
         } else if (state.crowdDominance <= 45) {
             els.arenaReactionLayer.classList.add('blue-winning');
             els.crowdLightsContainer.classList.add('blue-winning');
+            visualStateLog = 'blue-winning';
         } else {
             els.arenaReactionLayer.classList.add('balanced');
+            visualStateLog = 'balanced';
         }
+    }
+
+    if (DEBUG_DEMO_BATTLE && state.lastVisualStateLogged !== visualStateLog) {
+        console.log("Arena visual state: " + visualStateLog);
+        state.lastVisualStateLogged = visualStateLog;
     }
 }
 
@@ -1632,10 +1723,12 @@ function updateRivalSimulation(matchTime) {
         els.rivalScoreTxt.innerText = formatScore(state.rivalScore);
 
         // Tug of war pull (decreases dominance, pushing to Blue / Rival)
-        // Groove Anchor reduces rival pull by 50% to 70% (we use 60% reduction -> pull is 40% of normal)
+        // Groove Anchor reduces rival pull
         let grooveReduction = 1.0;
-        if (state.grooveAnchorActive) {
-            grooveReduction = 0.4;
+        if (state.specialActive && state.selectedClass === 'bass') {
+            const ability = getCurrentInstrumentAbility();
+            const pullReduction = ability.rivalPullReduction || 0;
+            grooveReduction = Math.max(0, 1.0 - pullReduction);
         }
 
         // Showtime reduces rival pull by 60% (pull is 40% of normal)
@@ -2467,10 +2560,14 @@ els.btnBackToMenuSong.addEventListener('click', () => {
 
 els.btnOpenCalibration.addEventListener('click', () => {
     els.calibrationModal.classList.remove('hidden-screen');
+    state.menuGamepadState.focusIndex = 0;
+    setTimeout(() => { if(typeof updateMenuGamepadFocus === 'function') updateMenuGamepadFocus(); }, 50);
 });
 
 els.btnCloseCalibration.addEventListener('click', () => {
     els.calibrationModal.classList.add('hidden-screen');
+    state.menuGamepadState.focusIndex = 0;
+    setTimeout(() => { if(typeof updateMenuGamepadFocus === 'function') updateMenuGamepadFocus(); }, 50);
     // Cancel any waiting keybinding remapping states
     if (state.waitingForKeyForLane !== null) {
         state.waitingForKeyForLane = null;
@@ -2618,3 +2715,197 @@ window.RAChartTools = {
         console.log(`Por favor, execute o comando: 'node write_playable_charts.js' no seu terminal local.`);
     }
 };
+
+window.RAArenaVisualDebugActive = false;
+window.RAArenaVisualDebug = {
+    forceRed: () => {
+        window.RAArenaVisualDebugActive = true;
+        state.crowdDominance = 65;
+        state.specialActive = false;
+        state.bandShowtimeActive = false;
+        updateArenaVisuals();
+        console.log("Forced Red Dominance");
+    },
+    forceBlue: () => {
+        window.RAArenaVisualDebugActive = true;
+        state.crowdDominance = 35;
+        state.specialActive = false;
+        state.bandShowtimeActive = false;
+        updateArenaVisuals();
+        console.log("Forced Blue Dominance");
+    },
+    forceBalanced: () => {
+        window.RAArenaVisualDebugActive = true;
+        state.crowdDominance = 50;
+        state.specialActive = false;
+        state.bandShowtimeActive = false;
+        updateArenaVisuals();
+        console.log("Forced Balanced");
+    },
+    forceSpecial: () => {
+        window.RAArenaVisualDebugActive = true;
+        state.specialActive = true;
+        state.bandShowtimeActive = false;
+        updateArenaVisuals();
+        console.log("Forced Special");
+    },
+    forceShowtime: () => {
+        window.RAArenaVisualDebugActive = true;
+        state.bandShowtimeActive = true;
+        updateArenaVisuals();
+        console.log("Forced Showtime");
+    },
+    forcePulseRed: () => {
+        window.RAArenaVisualDebugActive = true;
+        triggerReactionPulse('red');
+        console.log("Forced Red Pulse");
+    },
+    forcePulseBlue: () => {
+        window.RAArenaVisualDebugActive = true;
+        triggerReactionPulse('blue');
+        console.log("Forced Blue Pulse");
+    },
+    clear: () => {
+        window.RAArenaVisualDebugActive = false;
+        state.crowdDominance = 50;
+        state.specialActive = false;
+        state.bandShowtimeActive = false;
+        if (els.arenaReactionLayer) els.arenaReactionLayer.className = '';
+        if (els.crowdLightsContainer) els.crowdLightsContainer.className = '';
+        console.log("Cleared debug visuals");
+    }
+};
+
+// --- MENU GAMEPAD NAVIGATION ---
+function updateMenuGamepadFocus() {
+    // Clear old focus
+    state.menuGamepadState.elements.forEach(el => el.classList.remove('gamepad-focus'));
+    
+    if (state.currentScreen === 'game-screen') return;
+
+    let container = document.getElementById(state.currentScreen);
+    if (!container) return;
+
+    if (els.calibrationModal && !els.calibrationModal.classList.contains('hidden-screen')) {
+        container = els.calibrationModal;
+    }
+
+    const query = 'button:not([disabled]):not(.hidden-screen), .song-card, .class-card, label.toggle-btn';
+    let focusable = Array.from(container.querySelectorAll(query)).filter(el => {
+        if (el.style.display === 'none') return false;
+        return el.offsetParent !== null;
+    });
+
+    state.menuGamepadState.elements = focusable;
+
+    if (focusable.length > 0) {
+        if (state.menuGamepadState.focusIndex >= focusable.length) {
+            state.menuGamepadState.focusIndex = focusable.length - 1;
+        }
+        if (state.menuGamepadState.focusIndex < 0) {
+            state.menuGamepadState.focusIndex = 0;
+        }
+
+        const focusedEl = focusable[state.menuGamepadState.focusIndex];
+        focusedEl.classList.add('gamepad-focus');
+        focusedEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+}
+
+function menuGamepadLoop(timestamp) {
+    requestAnimationFrame(menuGamepadLoop);
+
+    const modalOpen = els.calibrationModal && !els.calibrationModal.classList.contains('hidden-screen');
+    if (state.currentScreen === 'game-screen' && !modalOpen) {
+        return; 
+    }
+
+    const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+    if (!gamepads) return;
+
+    let gp = null;
+    for (let i = 0; i < gamepads.length; i++) {
+        if (gamepads[i] && gamepads[i].connected) {
+            gp = gamepads[i];
+            break;
+        }
+    }
+
+    if (!gp) return;
+
+    const now = performance.now();
+    if (now - state.menuGamepadState.lastInputTime < state.menuGamepadState.cooldown) {
+        return; 
+    }
+
+    let inputDetected = false;
+    let dy = 0;
+    let dx = 0;
+
+    // D-PAD
+    if (gp.buttons[12] && gp.buttons[12].pressed) dy = -1;
+    else if (gp.buttons[13] && gp.buttons[13].pressed) dy = 1;
+    else if (gp.buttons[14] && gp.buttons[14].pressed) dx = -1;
+    else if (gp.buttons[15] && gp.buttons[15].pressed) dx = 1;
+    
+    // Analog Left Stick
+    if (dy === 0 && dx === 0 && gp.axes.length >= 2) {
+        if (gp.axes[1] < -0.5) dy = -1;
+        else if (gp.axes[1] > 0.5) dy = 1;
+        else if (gp.axes[0] < -0.5) dx = -1;
+        else if (gp.axes[0] > 0.5) dx = 1;
+    }
+
+    if (dy !== 0 || dx !== 0) {
+        inputDetected = true;
+        const maxIdx = state.menuGamepadState.elements.length - 1;
+        if (maxIdx >= 0) {
+            if (dy === -1 || dx === -1) {
+                state.menuGamepadState.focusIndex--;
+                if (state.menuGamepadState.focusIndex < 0) state.menuGamepadState.focusIndex = maxIdx;
+            } else if (dy === 1 || dx === 1) {
+                state.menuGamepadState.focusIndex++;
+                if (state.menuGamepadState.focusIndex > maxIdx) state.menuGamepadState.focusIndex = 0;
+            }
+            updateMenuGamepadFocus();
+        }
+    }
+
+    // Action buttons
+    if (gp.buttons[0] && gp.buttons[0].pressed) {
+        inputDetected = true;
+        if (state.menuGamepadState.elements.length > 0) {
+            const focusedEl = state.menuGamepadState.elements[state.menuGamepadState.focusIndex];
+            if (focusedEl) {
+                focusedEl.click();
+                state.menuGamepadState.lastInputTime = now + 150;
+                setTimeout(() => { if(typeof updateMenuGamepadFocus === 'function') updateMenuGamepadFocus(); }, 50);
+            }
+        }
+    } else if (gp.buttons[1] && gp.buttons[1].pressed) {
+        inputDetected = true;
+        let backBtn = null;
+        if (modalOpen) {
+            backBtn = document.getElementById('btn-close-calibration');
+        } else if (state.currentScreen === 'song-screen') {
+            backBtn = document.getElementById('btn-back-to-menu-song');
+        } else if (state.currentScreen === 'class-screen') {
+            backBtn = document.getElementById('btn-back-to-menu');
+        } else if (state.currentScreen === 'results-screen') {
+            backBtn = document.getElementById('btn-back-to-menu-res');
+        }
+        
+        if (backBtn && backBtn.offsetParent !== null) {
+            backBtn.click();
+            state.menuGamepadState.lastInputTime = now + 150;
+            setTimeout(() => { if(typeof updateMenuGamepadFocus === 'function') updateMenuGamepadFocus(); }, 50);
+        }
+    }
+
+    if (inputDetected) {
+        state.menuGamepadState.lastInputTime = now;
+    }
+}
+
+// Inicializar
+requestAnimationFrame(menuGamepadLoop);

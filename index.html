@@ -11,7 +11,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700&family=Orbitron:wght@400;700;900&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="src/css/style.css?v=6">
+    <link rel="stylesheet" href="src/css/style.css?v=novo">
 </head>
 
 <body>
@@ -133,12 +133,10 @@
                         <div class="class-card-bg"
                             style="background-image: url('assets/images/Jax_Solo_Guitarist_Rock_Arena_202606151551.jpeg');"></div>
                         <div class="class-card-overlay"></div>
-                        <div class="class-badge badge-dps">DPS</div>
+                        <div class="class-badge badge-dps">ATAQUE</div>
                         <h3 class="class-name">Guitarrista Solo</h3>
-                        <p class="class-desc">Explosão de pontos em solos e seções de alta dificuldade. Ideal para virar
-                            a partida rapidamente.</p>
-                        <div class="class-skill"><strong>Habilidade:</strong> Shred Blitz (+100% Pontos temporários)
-                        </div>
+                        <p class="class-desc">Explosão de pontos em solos e seções de alta dificuldade. Ideal para virar a partida rapidamente.</p>
+                        <div class="class-skill"><strong>Especial:</strong> Solo Incendiário</div>
                     </div>
 
                     <!-- Rhythm Guitar (Support) -->
@@ -147,12 +145,10 @@
                             style="background-image: url('assets/images/Futuristic_stadium_at_night_202606151551.jpeg'); opacity: 0.4;">
                         </div>
                         <div class="class-card-overlay"></div>
-                        <div class="class-badge badge-support">SUPORTE</div>
+                        <div class="class-badge badge-support">DEFESA</div>
                         <h3 class="class-name">Guitarrista Base</h3>
-                        <p class="class-desc">Protege combos, estabiliza o ritmo e fortalece o grupo. Reduz a perda de
-                            barra ao cometer erros.</p>
-                        <div class="class-skill"><strong>Habilidade:</strong> Combo Shield (Protege o multiplicador
-                            contra 3 erros)</div>
+                        <p class="class-desc">Protege combos, estabiliza o ritmo e fortalece o grupo. Reduz a perda de barra ao cometer erros.</p>
+                        <div class="class-skill"><strong>Especial:</strong> Parede Sonora</div>
                     </div>
 
                     <!-- Bass (Defense) -->
@@ -161,12 +157,10 @@
                             style="background-image: url('assets/images/Storyboard_for_Rock_Arena_Online_202606151551.jpeg'); opacity: 0.3;">
                         </div>
                         <div class="class-card-overlay"></div>
-                        <div class="class-badge badge-defense">DEFESA</div>
+                        <div class="class-badge badge-defense">CONTROLE</div>
                         <h3 class="class-name">Baixista</h3>
-                        <p class="class-desc">Evita o colapso da banda e ajuda a recuperar momentos críticos. Impede que
-                            o rival avance a barra de Cabo de Guerra.</p>
-                        <div class="class-skill"><strong>Habilidade:</strong> Groove Anchor (Congela o avanço inimigo
-                            por 5 segundos)</div>
+                        <p class="class-desc">Evita o colapso da banda e ajuda a recuperar momentos críticos. Impede que o rival avance a barra de Cabo de Guerra.</p>
+                        <div class="class-skill"><strong>Especial:</strong> Groove Profundo</div>
                     </div>
 
                     <!-- Drums (Energy) -->
@@ -176,10 +170,8 @@
                         <div class="class-card-overlay"></div>
                         <div class="class-badge badge-energy">ENERGIA</div>
                         <h3 class="class-name">Baterista</h3>
-                        <p class="class-desc">Gera habilidades, coordena o grupo e acelera o ritmo coletivo. Carrega a
-                            barra de especial da equipe mais rápido.</p>
-                        <div class="class-skill"><strong>Habilidade:</strong> Overdrive Beat (Carrega especial 2x mais
-                            rápido)</div>
+                        <p class="class-desc">Gera habilidades, coordena o grupo e acelera o ritmo coletivo. Carrega a barra de especial da equipe mais rápido.</p>
+                        <div class="class-skill"><strong>Especial:</strong> Ritmo de Guerra</div>
                     </div>
                 </div>
 
@@ -222,6 +214,7 @@
                     <div class="indicator-title">SUA CLASSE</div>
                     <div id="hud-class-name" class="indicator-value">-</div>
                     <div class="indicator-role" id="hud-class-role">-</div>
+                    <div class="indicator-special" id="hud-class-special" style="font-size: 0.75rem; color: var(--neon-yellow); margin-top: 5px; font-weight: 600;">-</div>
                 </div>
 
                 <div class="special-meter-wrapper glass-card">
@@ -411,10 +404,10 @@
     </div>
 
     <!-- GAMEPAD AND GAME LOGIC SCRIPTS -->
-    <script src="data/charts/charts.js?v=9"></script>
-    <script src="data/charts/song3_difficulties.js?v=1"></script>
-    <script src="data/charts/song2_difficulties.js?v=1"></script>
-    <script src="src/js/game.js?v=9"></script>
+    <script src="data/charts/charts.js?v=novo"></script>
+    <script src="data/charts/song3_difficulties.js?v=novo"></script>
+    <script src="data/charts/song2_difficulties.js?v=novo"></script>
+    <script src="src/js/game.js?v=novo"></script>
 </body>
 
 </html>
