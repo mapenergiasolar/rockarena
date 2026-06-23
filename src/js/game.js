@@ -78,6 +78,17 @@ const state = {
     holdingNotes: [null, null, null, null, null],
     lastGamepadButtonState: Array(16).fill(false),
     
+    // Crowd Event Messages State
+    lastCrowdDominance: 50,
+    lastCrowdMessage: '',
+    lastCrowdMessageTime: 0,
+    lastComboMilestone: 0,
+    lastCombo: 0,
+    neutralZoneStartTime: null,
+    wasIndividualAbilityActive: false,
+    wasShowtimeActive: false,
+    crowdMessageTimeout: null,
+    
     // Audio / Video refs
     songDuration: 30, // seconds fallback
     isMuted: false,
@@ -646,6 +657,24 @@ function startGameplay() {
     state.individualAbilityUsed = false;
     state.bandShowtimeUsed = false;
     
+    // Reset Crowd Narrative Messages State
+    state.lastCrowdDominance = 50;
+    state.lastCrowdMessage = '';
+    state.lastCrowdMessageTime = 0;
+    state.lastComboMilestone = 0;
+    state.lastCombo = 0;
+    state.neutralZoneStartTime = null;
+    state.wasIndividualAbilityActive = false;
+    state.wasShowtimeActive = false;
+    if (state.crowdMessageTimeout) clearTimeout(state.crowdMessageTimeout);
+    state.crowdMessageTimeout = null;
+
+    const msgEl = document.getElementById('crowd-event-message');
+    if (msgEl) {
+        msgEl.innerText = '';
+        msgEl.className = 'crowd-event-msg';
+    }
+    
     state.rival = {
         score: 0,
         combo: 0,
@@ -914,6 +943,9 @@ function updateGameLogic() {
     if (state.isLoopRunning && matchTime > 0.5) {
         updateRivalSimulation(matchTime);
     }
+    
+    // Check crowd narrative events and messages
+    updateCrowdEventMessages();
     
     // Check if song has ended (either audio ended, or track duration reached)
     if (els.gameAudio.ended || (matchTime > 0 && els.gameAudio.paused)) {
@@ -1409,11 +1441,9 @@ function updateTugOfWarUI() {
     const markerPosition = 100 - state.crowdDominance;
     els.tugBarMarker.style.left = `${markerPosition}%`;
     
-    // Percentage display
-    const redPct = Math.round(state.crowdDominance);
-    const bluePct = 100 - redPct;
+    // Hide exact percentage display during gameplay
     if (els.tugBarLabel) {
-        els.tugBarLabel.innerText = `VERMELHO: ${redPct}% | AZUL: ${bluePct}%`;
+        els.tugBarLabel.innerText = "DOMÍNIO DA PLATEIA";
     }
 
     if (state.crowdDominance > 55) {
@@ -1913,6 +1943,180 @@ function getGamepadButtonName(index) {
         15: "DIREITA"
     };
     return names[index] !== undefined ? names[index] : `BT ${index}`;
+}
+
+// ----------------------------------------------------
+// CROWD EVENT MESSAGES & NARRATIVE LOGIC
+// ----------------------------------------------------
+function getRandomMessage(msgArray) {
+    if (msgArray.length === 0) return '';
+    if (msgArray.length === 1) return msgArray[0];
+    let msg = state.lastCrowdMessage;
+    let attempts = 0;
+    while (msg === state.lastCrowdMessage && attempts < 10) {
+        msg = msgArray[Math.floor(Math.random() * msgArray.length)];
+        attempts++;
+    }
+    return msg;
+}
+
+function showCrowdEventMessage(message, type, force = false) {
+    const now = Date.now();
+    const cooldown = 6000; // 6 seconds
+    
+    // Check cooldown unless forced
+    if (!force && (now - state.lastCrowdMessageTime < cooldown)) {
+        return false;
+    }
+    
+    // Prevent immediate repetition
+    if (message === state.lastCrowdMessage) {
+        return false;
+    }
+    
+    // Update state
+    state.lastCrowdMessage = message;
+    state.lastCrowdMessageTime = now;
+    
+    // Render message in HUD
+    const msgEl = document.getElementById('crowd-event-message');
+    if (msgEl) {
+        msgEl.innerText = message;
+        msgEl.className = 'crowd-event-msg show ' + type;
+        
+        // Clear message after 2.5 seconds
+        if (state.crowdMessageTimeout) clearTimeout(state.crowdMessageTimeout);
+        state.crowdMessageTimeout = setTimeout(() => {
+            msgEl.classList.remove('show');
+        }, 2500);
+    }
+    
+    return true;
+}
+
+function updateCrowdEventMessages() {
+    if (!state.isLoopRunning) return;
+    
+    const now = Date.now();
+    
+    // 1. Destaque Individual Trigger
+    if (state.specialActive && !state.wasIndividualAbilityActive) {
+        state.wasIndividualAbilityActive = true;
+        const msg = "DESTAQUE INDIVIDUAL! O músico chamou a responsabilidade!";
+        showCrowdEventMessage(msg, 'gold', true);
+    } else if (!state.specialActive && state.wasIndividualAbilityActive) {
+        state.wasIndividualAbilityActive = false;
+    }
+    
+    // 2. Showtime Trigger
+    if (state.bandShowtimeActive && !state.wasShowtimeActive) {
+        state.wasShowtimeActive = true;
+        const msg = "SHOWTIME! Jax's Band incendiou o palco!";
+        showCrowdEventMessage(msg, 'gold', true);
+    } else if (!state.bandShowtimeActive && state.wasShowtimeActive) {
+        state.wasShowtimeActive = false;
+    }
+    
+    // 3. Turn-arounds (fura cooldown)
+    // Red Turn-around: was <= 50, now reached >= 55
+    if (state.lastCrowdDominance <= 50 && state.crowdDominance >= 55) {
+        const msg = getRandomMessage([
+            "Virada espetacular da Banda Vermelha!",
+            "Jax's Band virou a plateia!",
+            "A arena mudou de lado!",
+            "O público explodiu com a reação vermelha!"
+        ]);
+        showCrowdEventMessage(msg, 'red', true);
+    } 
+    // Blue Turn-around: was >= 50, now reached <= 45
+    else if (state.lastCrowdDominance >= 50 && state.crowdDominance <= 45) {
+        const msg = getRandomMessage([
+            "Shred Rivals virou o jogo!",
+            "A Banda Azul tomou a plateia!",
+            "Momento perigoso para Jax's Band!",
+            "A arena reagiu à pressão azul!"
+        ]);
+        showCrowdEventMessage(msg, 'blue', true);
+    }
+    
+    // 4. Combo milestones (dispara apenas uma vez por sequência)
+    if (state.combo >= 50 && state.lastComboMilestone < 50) {
+        state.lastComboMilestone = 50;
+        const msg = getRandomMessage([
+            "Jax's Band está em estado de graça!",
+            "Sequência absurda no palco!",
+            "A plateia foi junto com a banda!",
+            "Momento histórico da Banda Vermelha!"
+        ]);
+        showCrowdEventMessage(msg, 'gold', true); // fura cooldown
+    } else if (state.combo >= 25 && state.combo < 50 && state.lastComboMilestone < 25) {
+        state.lastComboMilestone = 25;
+        const msg = getRandomMessage([
+            "O público sentiu essa sequência!",
+            "Jax's Band entrou em sintonia!",
+            "Sequência forte da Banda Vermelha!",
+            "A banda encaixou o groove!"
+        ]);
+        showCrowdEventMessage(msg, 'gold', false); // normal cooldown
+    } else if (state.combo < 25) {
+        state.lastComboMilestone = 0;
+    }
+    
+    // 5. Combo breaks (jogador erra com combo >= 20)
+    if (state.combo === 0 && state.lastCombo >= 20) {
+        const msg = getRandomMessage([
+            "A Banda Vermelha perdeu o ritmo!",
+            "Shred Rivals aproveitou a falha!",
+            "A plateia sentiu essa queda!",
+            "Momento de tensão para Jax's Band!"
+        ]);
+        showCrowdEventMessage(msg, 'danger', false); // normal cooldown
+    }
+    
+    // 6. Domain leads or neutral (respeita cooldown)
+    if (state.crowdDominance >= 65) {
+        const msg = getRandomMessage([
+            "Jax's Band está incendiando a arena!",
+            "A Banda Vermelha está dominando o show!",
+            "A plateia está com Jax's Band!",
+            "O público está sentindo a força da Banda Vermelha!"
+        ]);
+        showCrowdEventMessage(msg, 'red', false);
+        state.neutralZoneStartTime = null;
+    } else if (state.crowdDominance <= 35) {
+        const msg = getRandomMessage([
+            "Shred Rivals está tomando conta da arena!",
+            "A Banda Azul está arrasando!",
+            "A plateia virou para Shred Rivals!",
+            "A Banda Vermelha está sob pressão!"
+        ]);
+        showCrowdEventMessage(msg, 'blue', false);
+        state.neutralZoneStartTime = null;
+    } 
+    // Neutral zone (must stay between 45 and 55 for >= 3 seconds)
+    else if (state.crowdDominance >= 45 && state.crowdDominance <= 55) {
+        if (state.neutralZoneStartTime === null) {
+            state.neutralZoneStartTime = now;
+        } else if (now - state.neutralZoneStartTime >= 3000) {
+            const msg = getRandomMessage([
+                "A arena está dividida!",
+                "Disputa acirrada no palco!",
+                "O público ainda não escolheu um lado!",
+                "As duas bandas estão no limite!"
+            ]);
+            const triggered = showCrowdEventMessage(msg, 'neutral', false);
+            if (triggered) {
+                // Reset start time so it waits another 3s before triggering neutral messages again
+                state.neutralZoneStartTime = now;
+            }
+        }
+    } else {
+        state.neutralZoneStartTime = null;
+    }
+    
+    // Save last states
+    state.lastCrowdDominance = state.crowdDominance;
+    state.lastCombo = state.combo;
 }
 
 let gamepadRebindInterval = null;

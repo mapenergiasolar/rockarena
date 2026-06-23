@@ -620,6 +620,7 @@ kbd {
 
 /* Tug of War (Cabo de Guerra) */
 .tug-of-war-wrapper {
+    position: relative;
     flex: 1;
     max-width: 500px;
     margin: 0 20px;
@@ -1493,5 +1494,52 @@ kbd {
 @keyframes flashBandText {
     0%, 100% { opacity: 0.4; }
     50% { opacity: 1; color: var(--neon-red); }
+}
+
+.crowd-event-msg {
+    position: absolute;
+    top: 85px;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    z-index: 15;
+    white-space: nowrap;
+    text-align: center;
+}
+
+.crowd-event-msg.show {
+    opacity: 1;
+}
+
+.crowd-event-msg.red {
+    color: var(--neon-red);
+    text-shadow: 0 0 8px var(--neon-red-glow);
+}
+
+.crowd-event-msg.blue {
+    color: var(--neon-blue);
+    text-shadow: 0 0 8px var(--neon-blue-glow);
+}
+
+.crowd-event-msg.neutral {
+    color: #ffffff;
+    text-shadow: 0 0 8px rgba(255, 255, 255, 0.6);
+}
+
+.crowd-event-msg.gold {
+    color: var(--neon-yellow);
+    text-shadow: 0 0 10px var(--neon-yellow-glow);
+    font-weight: 900;
+}
+
+.crowd-event-msg.danger {
+    color: #ff3333;
+    text-shadow: 0 0 10px rgba(255, 51, 51, 0.8);
+    font-weight: 900;
 }
 
