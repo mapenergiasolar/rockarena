@@ -12,17 +12,17 @@
         href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700&family=Orbitron:wght@400;700;900&display=swap"
         rel="stylesheet">
     <link rel="icon" href="assets/images/favicon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="src/css/style.css?v=1.4.1">
+    <link rel="stylesheet" href="src/css/style.css?v=1.4.2">
 </head>
 
 <body>
     <div id="app-container">
         <!-- BACKGROUND VIDEO CONTAINER -->
         <div id="video-bg-container">
-            <video id="bg-video" loop muted playsinline>
+            <video id="bg-video" loop muted playsinline draggable="false">
                 <source src="assets/videos/Game_trailer_intro_stadium_202606151550.mp4" type="video/mp4">
             </video>
-            <video id="special-video" loop muted playsinline style="display: none; opacity: 0;">
+            <video id="special-video" loop muted playsinline draggable="false" style="display: none; opacity: 0;">
                 <source src="assets/videos/full band.mp4" type="video/mp4">
             </video>
             <div id="video-overlay"></div>
@@ -436,10 +436,10 @@
     </div>
 
     <!-- GAMEPAD AND GAME LOGIC SCRIPTS -->
-    <script src="data/charts/charts.js?v=1.4.1"></script>
-    <script src="data/charts/song3_difficulties.js?v=1.4.1"></script>
-    <script src="data/charts/song2_difficulties.js?v=1.4.1"></script>
-    <script src="src/js/game.js?v=1.4.1"></script>
+    <script src="data/charts/charts.js?v=1.4.2"></script>
+    <script src="data/charts/song3_difficulties.js?v=1.4.2"></script>
+    <script src="data/charts/song2_difficulties.js?v=1.4.2"></script>
+    <script src="src/js/game.js?v=1.4.2"></script>
 </body>
 
 </html>

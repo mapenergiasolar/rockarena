@@ -115,6 +115,24 @@ kbd {
     opacity: 0;
 }
 
+#game-screen,
+#game-screen * {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+}
+
+#game-screen video,
+#game-screen img,
+#video-bg-container video {
+    -webkit-user-drag: none;
+    user-drag: none;
+}
+
+html.touch-capable #game-screen {
+    overscroll-behavior: none;
+}
+
 @keyframes fadeIn {
     from { opacity: 0; }
     to { opacity: 1; }
@@ -1059,6 +1077,8 @@ html.touch-capable .mobile-controls {
     font-family: 'Orbitron', sans-serif;
     font-weight: 900;
     -webkit-tap-highlight-color: transparent;
+    -webkit-appearance: none;
+    appearance: none;
     touch-action: none;
     backdrop-filter: blur(9px);
     -webkit-backdrop-filter: blur(9px);

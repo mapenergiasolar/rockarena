@@ -1476,6 +1476,18 @@ function setupMobileControls() {
     if (els.specialHint) els.specialHint.innerText = 'TOQUE EM ESPECIAL PARA ATIVAR!';
     if (els.bandHint) els.bandHint.innerText = 'TOQUE EM SHOWTIME PARA ATIVAR!';
 
+    const blockNativeGameplayGesture = event => {
+        if (state.currentScreen === 'game-screen') {
+            event.preventDefault();
+        }
+    };
+
+    document.addEventListener('contextmenu', blockNativeGameplayGesture, { capture: true });
+    document.addEventListener('dragstart', blockNativeGameplayGesture, { capture: true });
+    document.addEventListener('selectstart', blockNativeGameplayGesture, { capture: true });
+    els.mobileControls.addEventListener('touchmove', event => event.preventDefault(), { passive: false });
+    els.mobileControls.addEventListener('gesturestart', event => event.preventDefault());
+
     const releaseLane = (lane, button) => {
         state.activeTouches[lane] = false;
         state.holdingNotes[lane] = null;

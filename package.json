@@ -1,6 +1,6 @@
 {
   "name": "rock-arena",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "description": "Rock Arena - Battle of Bands Online (Demo)",
   "main": "src/js/game.js",
   "scripts": {
