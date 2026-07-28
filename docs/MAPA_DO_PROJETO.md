@@ -4,7 +4,8 @@ Atualizado em 27/07/2026.
 
 ## Estado atual
 
-Versão funcional atual: **Web Demo V1.4 — Crowd System Foundation**.
+Versão funcional atual: **Web Demo V1.4.1 — Crowd Visibility + Mobile Touch
+Controls**.
 
 O último commit registrado é:
 
@@ -343,6 +344,18 @@ Regras aplicadas:
 
 O diagnóstico agora fica desligado por padrão e pode ser ativado acrescentando
 `?debug` ao endereço local.
+
+### V1.4.1 — Mobile Touch Controls
+
+- silhuetas ampliadas e com recorte frontal mais visível;
+- vídeo mantido como palco de fundo;
+- cinco botões touch para as lanes;
+- botões touch para Especial e Showtime;
+- suporte a multitouch e holds;
+- vibração curta em ações e erros quando o aparelho oferece suporte;
+- HUD compacto em celular horizontal;
+- aviso para girar o aparelho quando estiver na vertical;
+- redução automática da quantidade de elementos gráficos em telas menores.
 
 ## Próxima expansão recomendada
 

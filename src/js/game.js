@@ -156,6 +156,10 @@ const els = {
     crowdLightsContainer: document.getElementById('crowd-lights-container'),
     crowdSilhouetteLayer: document.getElementById('crowd-silhouette-layer'),
     crowdLightsticksLayer: document.getElementById('crowd-lightsticks-layer'),
+    mobileControls: document.getElementById('mobile-controls'),
+    mobileLaneButtons: document.querySelectorAll('[data-mobile-lane]'),
+    mobileSpecialButton: document.getElementById('mobile-special-btn'),
+    mobileShowtimeButton: document.getElementById('mobile-showtime-btn'),
     videoBgContainer: document.getElementById('video-bg-container'),
     resWinnerBand: document.getElementById('res-winner-band'),
     resFinalDominance: document.getElementById('res-final-dominance'),
@@ -723,6 +727,7 @@ function startGameplay() {
     state.accuracy = 100;
     state.crowdDominance = 50;
     state.specialEnergy = 0;
+    state.activeTouches = [false, false, false, false, false];
     state.holdingNotes = [null, null, null, null, null];
     state.specialActive = false;
     state.comboShieldHits = 0;
@@ -736,6 +741,7 @@ function startGameplay() {
             laneKeys[i].targetEl.classList.remove('wrong-input-shake');
         }
     }
+    els.mobileLaneButtons.forEach(button => button.classList.remove('pressed'));
     
     // Collective Band Showtime & Trackers Reset
     state.bandEnergy = 0;
@@ -1256,6 +1262,7 @@ function triggerMiss(note) {
     const now = performance.now();
     if (!state.lastMissShakeTime || (now - state.lastMissShakeTime >= 100)) {
         state.lastMissShakeTime = now;
+        triggerMobileHaptic(28);
 
         const targetEl = laneKeys[note.lane].targetEl;
         if (targetEl) {
@@ -1314,6 +1321,7 @@ function triggerWrongInput(lane) {
     calculateAccuracy();
 
     showRhythmFeedback('wrong');
+    triggerMobileHaptic([25, 18, 25]);
 
     // Shake visual local
     const targetEl = laneKeys[lane].targetEl;
@@ -1449,6 +1457,71 @@ function triggerBandShowtime() {
 
     updateBandSpecialUI();
     updateArenaVisuals();
+}
+
+function triggerMobileHaptic(pattern) {
+    if (
+        document.documentElement.classList.contains('touch-capable') &&
+        typeof navigator.vibrate === 'function' &&
+        document.visibilityState === 'visible'
+    ) {
+        navigator.vibrate(pattern);
+    }
+}
+
+function setupMobileControls() {
+    const touchCapable = window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0;
+    document.documentElement.classList.toggle('touch-capable', touchCapable);
+    if (!touchCapable || !els.mobileControls) return;
+    if (els.specialHint) els.specialHint.innerText = 'TOQUE EM ESPECIAL PARA ATIVAR!';
+    if (els.bandHint) els.bandHint.innerText = 'TOQUE EM SHOWTIME PARA ATIVAR!';
+
+    const releaseLane = (lane, button) => {
+        state.activeTouches[lane] = false;
+        state.holdingNotes[lane] = null;
+        laneKeys[lane].targetEl.classList.remove('active');
+        button.classList.remove('pressed');
+    };
+
+    els.mobileLaneButtons.forEach(button => {
+        const lane = Number(button.dataset.mobileLane);
+        if (!Number.isInteger(lane) || !laneKeys[lane]) return;
+
+        button.addEventListener('pointerdown', event => {
+            event.preventDefault();
+            if (!state.isLoopRunning || state.currentScreen !== 'game-screen') return;
+            button.setPointerCapture?.(event.pointerId);
+            button.classList.add('pressed');
+            state.activeTouches[lane] = true;
+            triggerMobileHaptic(8);
+            processHit(lane);
+        });
+
+        ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(eventName => {
+            button.addEventListener(eventName, event => {
+                event.preventDefault();
+                releaseLane(lane, button);
+            });
+        });
+    });
+
+    if (els.mobileSpecialButton) {
+        els.mobileSpecialButton.addEventListener('pointerdown', event => {
+            event.preventDefault();
+            if (!state.isLoopRunning || state.currentScreen !== 'game-screen') return;
+            triggerMobileHaptic(18);
+            triggerSpecialSkill();
+        });
+    }
+
+    if (els.mobileShowtimeButton) {
+        els.mobileShowtimeButton.addEventListener('pointerdown', event => {
+            event.preventDefault();
+            if (!state.isLoopRunning || state.currentScreen !== 'game-screen') return;
+            triggerMobileHaptic([18, 25, 18]);
+            triggerBandShowtime();
+        });
+    }
 }
 
 // Keyboard Listeners
@@ -1669,7 +1742,7 @@ function initializeCrowdSystem() {
     state.crowdVisuals.lowQuality = reducedMotion || compactViewport;
     els.crowdLightsContainer.classList.toggle('crowd-quality-low', state.crowdVisuals.lowQuality);
 
-    const peopleCount = state.crowdVisuals.lowQuality ? 24 : 42;
+    const peopleCount = state.crowdVisuals.lowQuality ? 28 : 48;
     const stickCount = state.crowdVisuals.lowQuality ? 30 : 58;
     const peopleFragment = document.createDocumentFragment();
     const sticksFragment = document.createDocumentFragment();
@@ -1677,9 +1750,10 @@ function initializeCrowdSystem() {
     for (let index = 0; index < peopleCount; index++) {
         const person = document.createElement('span');
         person.className = 'crowd-person';
+        person.dataset.bias = String((index * 47) % 100);
         person.style.setProperty('--person-x', `${2 + ((index * 37) % 96)}%`);
-        person.style.setProperty('--person-bottom', `${(index * 13) % 18}px`);
-        person.style.setProperty('--person-scale', `${0.68 + ((index * 17) % 34) / 100}`);
+        person.style.setProperty('--person-bottom', `${6 + ((index * 13) % 24)}px`);
+        person.style.setProperty('--person-scale', `${0.82 + ((index * 17) % 44) / 100}`);
         person.style.setProperty('--person-delay', `${-((index * 19) % 24) / 10}s`);
         person.style.setProperty('--person-speed', `${2.4 + ((index * 11) % 15) / 10}s`);
         peopleFragment.appendChild(person);
@@ -1725,6 +1799,11 @@ function updateCrowdSystem() {
     sticks.forEach(stick => {
         const bias = Number(stick.dataset.bias);
         stick.dataset.team = bias < dominance ? 'red' : 'blue';
+    });
+    const people = els.crowdSilhouetteLayer.querySelectorAll('.crowd-person');
+    people.forEach(person => {
+        const bias = Number(person.dataset.bias);
+        person.dataset.team = bias < dominance ? 'red' : 'blue';
     });
 }
 
@@ -1907,6 +1986,10 @@ function triggerReactionPulse(color) {
 function updateBandSpecialUI() {
     if (!els.bandBarFill) return;
     els.bandBarFill.style.width = `${state.bandEnergy}%`;
+    if (els.mobileShowtimeButton) {
+        els.mobileShowtimeButton.classList.toggle('ready', state.bandEnergy >= 100 && !state.bandShowtimeActive);
+        els.mobileShowtimeButton.classList.toggle('active', state.bandShowtimeActive);
+    }
 
     if (state.bandShowtimeActive) {
         els.bandBarFill.classList.add('ready');
@@ -2035,6 +2118,10 @@ function updateComboUI() {
 
 function updateSpecialUI() {
     els.specialBarFill.style.width = `${state.specialEnergy}%`;
+    if (els.mobileSpecialButton) {
+        els.mobileSpecialButton.classList.toggle('ready', state.specialEnergy >= 100 && !state.specialActive);
+        els.mobileSpecialButton.classList.toggle('active', state.specialActive);
+    }
     
     if (state.specialActive) {
         els.specialBarFill.classList.add('ready');
@@ -3175,4 +3262,5 @@ function menuGamepadLoop(timestamp) {
 
 // Inicializar
 initializeCrowdSystem();
+setupMobileControls();
 requestAnimationFrame(menuGamepadLoop);

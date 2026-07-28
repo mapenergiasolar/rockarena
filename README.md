@@ -2,7 +2,7 @@
 
 [Jogar a versão publicada](https://mapenergiasolar.github.io/rockarena/)
 
-Versão atual: **V1.4 — Crowd System Foundation**.
+Versão atual: **V1.4.1 — Crowd Visibility + Mobile Touch Controls**.
 
 Jogo de ritmo e competição de bandas online em HTML5.
 

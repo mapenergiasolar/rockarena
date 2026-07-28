@@ -12,7 +12,7 @@
         href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700&family=Orbitron:wght@400;700;900&display=swap"
         rel="stylesheet">
     <link rel="icon" href="assets/images/favicon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="src/css/style.css?v=1.4.0">
+    <link rel="stylesheet" href="src/css/style.css?v=1.4.1">
 </head>
 
 <body>
@@ -294,6 +294,31 @@
                 </div>
             </div>
 
+            <!-- Touch controls: automatically visible on phones/tablets -->
+            <div id="mobile-controls" class="mobile-controls" aria-label="Controles de toque">
+                <div class="mobile-lane-controls">
+                    <button class="mobile-lane-btn lane-green" data-mobile-lane="0" aria-label="Lane 1">1</button>
+                    <button class="mobile-lane-btn lane-yellow" data-mobile-lane="1" aria-label="Lane 2">2</button>
+                    <button class="mobile-lane-btn lane-red" data-mobile-lane="2" aria-label="Lane 3">3</button>
+                    <button class="mobile-lane-btn lane-blue" data-mobile-lane="3" aria-label="Lane 4">4</button>
+                    <button class="mobile-lane-btn lane-orange" data-mobile-lane="4" aria-label="Lane 5">5</button>
+                </div>
+                <div class="mobile-action-controls">
+                    <button id="mobile-special-btn" class="mobile-action-btn mobile-special-btn" aria-label="Especial do músico">
+                        ★ ESPECIAL
+                    </button>
+                    <button id="mobile-showtime-btn" class="mobile-action-btn mobile-showtime-btn" aria-label="Showtime da banda">
+                        ⚡ SHOWTIME
+                    </button>
+                </div>
+            </div>
+
+            <div class="mobile-orientation-hint" aria-hidden="true">
+                <span>↻</span>
+                <strong>GIRE O CELULAR</strong>
+                <small>Rock Arena foi preparado para jogar na horizontal.</small>
+            </div>
+
             <!-- On-Screen Rhythm Feedback (Perfect, Good, Miss) -->
             <div id="rhythm-feedback" class="feedback-text"></div>
 
@@ -411,10 +436,10 @@
     </div>
 
     <!-- GAMEPAD AND GAME LOGIC SCRIPTS -->
-    <script src="data/charts/charts.js?v=1.4.0"></script>
-    <script src="data/charts/song3_difficulties.js?v=1.4.0"></script>
-    <script src="data/charts/song2_difficulties.js?v=1.4.0"></script>
-    <script src="src/js/game.js?v=1.4.0"></script>
+    <script src="data/charts/charts.js?v=1.4.1"></script>
+    <script src="data/charts/song3_difficulties.js?v=1.4.1"></script>
+    <script src="data/charts/song2_difficulties.js?v=1.4.1"></script>
+    <script src="src/js/game.js?v=1.4.1"></script>
 </body>
 
 </html>
