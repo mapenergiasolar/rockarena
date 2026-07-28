@@ -11,7 +11,8 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700&family=Orbitron:wght@400;700;900&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="src/css/style.css?v=novo">
+    <link rel="icon" href="assets/images/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="src/css/style.css?v=1.4.0">
 </head>
 
 <body>
@@ -26,7 +27,13 @@
             </video>
             <div id="video-overlay"></div>
             <div id="arena-reaction-layer"></div>
-            <div id="crowd-lights-container" style="pointer-events: none;"></div>
+            <div id="crowd-lights-container" class="crowd-system" aria-hidden="true">
+                <div class="crowd-glow-layer"></div>
+                <div id="crowd-silhouette-layer" class="crowd-silhouette-layer"></div>
+                <div id="crowd-lightsticks-layer" class="crowd-lightsticks-layer"></div>
+                <div class="crowd-reaction-wave"></div>
+                <div class="crowd-flash-layer"></div>
+            </div>
         </div>
 
         <!-- AUDIO PLAYER FOR MUSIC/SOUNDS -->
@@ -404,10 +411,10 @@
     </div>
 
     <!-- GAMEPAD AND GAME LOGIC SCRIPTS -->
-    <script src="data/charts/charts.js?v=novo"></script>
-    <script src="data/charts/song3_difficulties.js?v=novo"></script>
-    <script src="data/charts/song2_difficulties.js?v=novo"></script>
-    <script src="src/js/game.js?v=novo"></script>
+    <script src="data/charts/charts.js?v=1.4.0"></script>
+    <script src="data/charts/song3_difficulties.js?v=1.4.0"></script>
+    <script src="data/charts/song2_difficulties.js?v=1.4.0"></script>
+    <script src="src/js/game.js?v=1.4.0"></script>
 </body>
 
 </html>

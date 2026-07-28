@@ -1,5 +1,9 @@
 # Rock Arena - Battle of Bands Online (Demo)
 
+[Jogar a versão publicada](https://mapenergiasolar.github.io/rockarena/)
+
+Versão atual: **V1.4 — Crowd System Foundation**.
+
 Jogo de ritmo e competição de bandas online em HTML5.
 
 ## Nova Estrutura de Pastas (Etapa 1 - Runtime Reorganizado)

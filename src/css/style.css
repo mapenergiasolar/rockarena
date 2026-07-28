@@ -1475,61 +1475,268 @@ kbd {
     80% { transform: translate(1px, -1px); }
 }
 
-/* CROWD LIGHTS CONTAINER - Upgraded */
+/* LAYERED CROWD SYSTEM */
 #crowd-lights-container {
+    --crowd-divider: 50%;
+    --crowd-activity: 0.45;
+    --crowd-stick-opacity: 0.68;
+    --crowd-glow-opacity: 0.62;
     position: absolute;
     bottom: 0;
     left: 0;
     width: 100%;
-    height: 40%;
+    height: 39%;
     pointer-events: none;
-    z-index: 2; /* In front of video/reaction, behind highway */
-    opacity: 0.8;
-    transition: opacity 0.5s ease, box-shadow 0.5s ease;
+    z-index: 2;
+    opacity: 0;
+    isolation: isolate;
+    overflow: hidden;
+    transform: translateZ(0);
+    transition: opacity 0.45s ease, filter 0.45s ease;
 }
 
-/* Visible light beams from the bottom */
-#crowd-lights-container::after {
+#crowd-lights-container.crowd-active {
+    opacity: 0.88;
+}
+
+#crowd-lights-container.crowd-intro-muted {
+    opacity: 0.22;
+}
+
+.crowd-glow-layer,
+.crowd-silhouette-layer,
+.crowd-lightsticks-layer,
+.crowd-reaction-wave,
+.crowd-flash-layer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+.crowd-glow-layer {
+    z-index: 0;
+    background:
+        linear-gradient(
+            90deg,
+            rgba(255, 51, 102, 0.55) 0%,
+            rgba(255, 51, 102, 0.12) var(--crowd-divider),
+            rgba(0, 204, 255, 0.12) var(--crowd-divider),
+            rgba(0, 204, 255, 0.55) 100%
+        ),
+        linear-gradient(to top, rgba(4, 4, 10, 0.92) 0%, transparent 82%);
+    opacity: var(--crowd-glow-opacity);
+    filter: blur(12px);
+    transform: translateY(26%);
+    transition: background 0.35s ease, opacity 0.35s ease;
+    mask-image: linear-gradient(to top, #000 0%, rgba(0, 0, 0, 0.82) 62%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to top, #000 0%, rgba(0, 0, 0, 0.82) 62%, transparent 100%);
+}
+
+.crowd-silhouette-layer {
+    z-index: 1;
+    bottom: -7%;
+    top: auto;
+    height: 72%;
+    opacity: 0.92;
+    filter: drop-shadow(0 -3px 8px rgba(0, 0, 0, 0.9));
+}
+
+.crowd-person {
+    position: absolute;
+    left: var(--person-x);
+    bottom: var(--person-bottom);
+    width: 23px;
+    height: 66px;
+    transform: translateX(-50%) scale(var(--person-scale));
+    transform-origin: 50% 100%;
+    animation: crowdPersonSway var(--person-speed) ease-in-out var(--person-delay) infinite alternate;
+}
+
+.crowd-person::before {
     content: '';
     position: absolute;
+    top: 1px;
+    left: 50%;
+    width: 17px;
+    height: 17px;
+    border-radius: 50%;
+    background: #050508;
+    transform: translateX(-50%);
+    box-shadow: 0 8px 0 2px #050508;
+}
+
+.crowd-person::after {
+    content: '';
+    position: absolute;
+    left: 50%;
     bottom: 0;
-    left: 0;
+    width: 36px;
+    height: 48px;
+    background: #040407;
+    transform: translateX(-50%);
+    clip-path: polygon(28% 0, 72% 0, 100% 34%, 80% 42%, 71% 27%, 76% 100%, 24% 100%, 29% 27%, 20% 42%, 0 34%);
+}
+
+.crowd-lightsticks-layer {
+    z-index: 2;
+    bottom: 5%;
+    top: auto;
+    height: 83%;
+}
+
+.crowd-lightstick {
+    --stick-color: var(--neon-blue);
+    position: absolute;
+    left: var(--stick-x);
+    bottom: var(--stick-bottom);
+    width: 4px;
+    height: var(--stick-height);
+    border-radius: 999px;
+    background: var(--stick-color);
+    box-shadow:
+        0 0 5px var(--stick-color),
+        0 0 12px var(--stick-color),
+        0 0 22px color-mix(in srgb, var(--stick-color) 55%, transparent);
+    opacity: var(--crowd-stick-opacity);
+    transform: translateX(-50%) rotate(-8deg);
+    transform-origin: 50% 115%;
+    animation: crowdStickSway var(--stick-speed) ease-in-out var(--stick-delay) infinite alternate;
+    transition: background-color 0.35s ease, box-shadow 0.35s ease, opacity 0.35s ease;
+}
+
+.crowd-lightstick[data-team="red"] {
+    --stick-color: var(--neon-red);
+}
+
+.crowd-lightstick[data-team="blue"] {
+    --stick-color: var(--neon-blue);
+}
+
+.crowd-reaction-wave {
+    z-index: 3;
+    left: -8%;
     width: 100%;
     height: 100%;
-    background-size: 50px 100%;
-    opacity: 0.5;
+    opacity: 0;
+    transform: translateY(35%) scale(0.72);
+    transform-origin: 50% 100%;
+    background: radial-gradient(ellipse at 50% 100%, rgba(255, 255, 255, 0.72) 0%, transparent 68%);
     mix-blend-mode: screen;
-    mask-image: linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%);
-    -webkit-mask-image: linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%);
-    transition: background-image 0.5s ease;
+}
+
+.crowd-flash-layer {
+    z-index: 4;
+    opacity: 0;
+    background: linear-gradient(to top, rgba(255, 255, 255, 0.68), transparent 72%);
+    mix-blend-mode: screen;
 }
 
 #crowd-lights-container.red-winning {
-    box-shadow: inset 0 -60px 120px -30px rgba(255, 51, 102, 0.8);
-}
-#crowd-lights-container.red-winning::after {
-    background-image: repeating-linear-gradient(90deg, transparent 0, transparent 20px, rgba(255, 51, 102, 0.4) 20px, rgba(255, 51, 102, 0.4) 40px);
+    filter: drop-shadow(0 -10px 24px rgba(255, 51, 102, 0.35));
 }
 
 #crowd-lights-container.blue-winning {
-    box-shadow: inset 0 -60px 120px -30px rgba(0, 204, 255, 0.8);
+    filter: drop-shadow(0 -10px 24px rgba(0, 204, 255, 0.35));
 }
-#crowd-lights-container.blue-winning::after {
-    background-image: repeating-linear-gradient(90deg, transparent 0, transparent 20px, rgba(0, 204, 255, 0.4) 20px, rgba(0, 204, 255, 0.4) 40px);
+
+#crowd-lights-container.crowd-dominating .crowd-lightstick {
+    opacity: 0.95;
+}
+
+#crowd-lights-container.special-active .crowd-lightstick {
+    animation-duration: 1.2s;
+    filter: saturate(1.25) brightness(1.35);
+}
+
+#crowd-lights-container.special-active .crowd-glow-layer {
+    background:
+        radial-gradient(ellipse at 50% 100%, rgba(255, 204, 0, 0.48), transparent 63%),
+        linear-gradient(
+            90deg,
+            rgba(255, 51, 102, 0.52) 0%,
+            rgba(255, 204, 0, 0.18) var(--crowd-divider),
+            rgba(0, 204, 255, 0.52) 100%
+        );
 }
 
 #crowd-lights-container.showtime-active {
-    box-shadow: inset 0 -120px 200px -40px rgba(255, 51, 102, 1);
     opacity: 1;
-}
-#crowd-lights-container.showtime-active::after {
-    background-image: repeating-linear-gradient(90deg, transparent 0, transparent 15px, rgba(255, 51, 102, 0.6) 15px, rgba(255, 51, 102, 0.6) 30px);
-    animation: flashBeams 0.5s infinite alternate;
+    filter: saturate(1.25) brightness(1.18) drop-shadow(0 -14px 30px rgba(255, 51, 102, 0.48));
 }
 
-@keyframes flashBeams {
-    from { opacity: 0.4; }
-    to { opacity: 0.8; }
+#crowd-lights-container.showtime-active .crowd-lightstick {
+    animation-duration: 0.72s;
+    opacity: 1;
+}
+
+#crowd-lights-container.showtime-active .crowd-flash-layer {
+    animation: crowdShowtimeFlash 0.72s ease-in-out infinite alternate;
+}
+
+#crowd-lights-container.crowd-wave-red .crowd-reaction-wave {
+    background: radial-gradient(ellipse at 50% 100%, rgba(255, 51, 102, 0.88) 0%, transparent 67%);
+    animation: crowdReactionWave 0.58s ease-out;
+}
+
+#crowd-lights-container.crowd-wave-blue .crowd-reaction-wave {
+    background: radial-gradient(ellipse at 50% 100%, rgba(0, 204, 255, 0.88) 0%, transparent 67%);
+    animation: crowdReactionWave 0.58s ease-out;
+}
+
+#crowd-lights-container.crowd-reaction-strong .crowd-reaction-wave {
+    animation-duration: 0.72s;
+}
+
+#crowd-lights-container.crowd-reaction-showtime .crowd-reaction-wave {
+    animation-duration: 0.92s;
+}
+
+#crowd-lights-container.crowd-reaction-soft .crowd-reaction-wave {
+    filter: brightness(0.72);
+}
+
+@keyframes crowdPersonSway {
+    from { transform: translateX(-50%) scale(var(--person-scale)) rotate(-2deg); }
+    to { transform: translateX(-50%) scale(var(--person-scale)) rotate(3deg) translateY(-2px); }
+}
+
+@keyframes crowdStickSway {
+    from { transform: translateX(-50%) rotate(-13deg) translateY(1px); }
+    to { transform: translateX(-50%) rotate(13deg) translateY(-5px); }
+}
+
+@keyframes crowdReactionWave {
+    0% { opacity: 0; transform: translateY(42%) scale(0.62); }
+    24% { opacity: 0.95; }
+    100% { opacity: 0; transform: translateY(-5%) scale(1.18); }
+}
+
+@keyframes crowdShowtimeFlash {
+    from { opacity: 0.05; }
+    to { opacity: 0.4; }
+}
+
+@media (max-width: 900px) {
+    #crowd-lights-container {
+        height: 34%;
+    }
+
+    .crowd-person:nth-child(3n),
+    .crowd-lightstick:nth-child(3n) {
+        display: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .crowd-person,
+    .crowd-lightstick,
+    #crowd-lights-container.showtime-active .crowd-flash-layer {
+        animation: none !important;
+    }
+
+    .crowd-reaction-wave {
+        display: none;
+    }
 }
 
 /* BAND COLLECTIVE ENERGY BAR */
@@ -1641,4 +1848,17 @@ kbd {
     outline: none !important;
     z-index: 10;
     transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* WRONG INPUT SHAKE */
+@keyframes wrongInputShake {
+    0% { transform: translateX(0); }
+    25% { transform: translateX(-4px); }
+    50% { transform: translateX(4px); }
+    75% { transform: translateX(-4px); }
+    100% { transform: translateX(0); }
+}
+
+.wrong-input-shake {
+    animation: wrongInputShake 0.12s ease-in-out !important;
 }

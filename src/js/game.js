@@ -3,7 +3,7 @@
  * Rhythm mechanics, audio-visual sync, Gamepad API, and Class systems.
  */
 
-const DEBUG_DEMO_BATTLE = true;
+const DEBUG_DEMO_BATTLE = new URLSearchParams(window.location.search).has('debug');
 if (DEBUG_DEMO_BATTLE) {
     console.log("Demo Battle initialized");
 }
@@ -90,6 +90,15 @@ const state = {
     wasIndividualAbilityActive: false,
     wasShowtimeActive: false,
     crowdMessageTimeout: null,
+
+    // Layered crowd visuals
+    crowdVisuals: {
+        initialized: false,
+        lowQuality: false,
+        lastDominanceBucket: null,
+        lastReactionTime: 0,
+        reactionTimer: null
+    },
     
     // Menu Gamepad State
     menuGamepadState: {
@@ -145,6 +154,8 @@ const els = {
     bandHint: document.getElementById('band-hint'),
     arenaReactionLayer: document.getElementById('arena-reaction-layer'),
     crowdLightsContainer: document.getElementById('crowd-lights-container'),
+    crowdSilhouetteLayer: document.getElementById('crowd-silhouette-layer'),
+    crowdLightsticksLayer: document.getElementById('crowd-lightsticks-layer'),
     videoBgContainer: document.getElementById('video-bg-container'),
     resWinnerBand: document.getElementById('res-winner-band'),
     resFinalDominance: document.getElementById('res-final-dominance'),
@@ -559,6 +570,9 @@ function showScreen(screenId) {
     els.classScreen.className = screenId === 'class-screen' ? 'active-screen' : 'hidden-screen';
     els.gameScreen.className = screenId === 'game-screen' ? 'active-screen' : 'hidden-screen';
     els.resultsScreen.className = screenId === 'results-screen' ? 'active-screen' : 'hidden-screen';
+    if (els.crowdLightsContainer) {
+        els.crowdLightsContainer.classList.toggle('crowd-active', screenId === 'game-screen');
+    }
 
     // Handle background cinematic videos depending on the screen
     if (screenId === 'menu-screen' || screenId === 'song-screen') {
@@ -713,6 +727,15 @@ function startGameplay() {
     state.specialActive = false;
     state.comboShieldHits = 0;
     state.grooveAnchorActive = false;
+    state.lastWrongInputTime = 0;
+    state.lastMissShakeTime = 0;
+
+    // Clear any previous wrong input shakes
+    for (let i = 0; i < 5; i++) {
+        if (laneKeys[i] && laneKeys[i].targetEl) {
+            laneKeys[i].targetEl.classList.remove('wrong-input-shake');
+        }
+    }
     
     // Collective Band Showtime & Trackers Reset
     state.bandEnergy = 0;
@@ -722,15 +745,31 @@ function startGameplay() {
     
     // Reset Crowd Narrative Messages State
     state.lastCrowdDominance = 50;
+    state.currentDominanceSide = 'neutral';
     state.lastCrowdMessage = '';
     state.lastCrowdMessageTime = 0;
     state.lastComboMilestone = 0;
+    state.lastVisualStateLogged = '';
     state.lastCombo = 0;
     state.neutralZoneStartTime = null;
     state.wasIndividualAbilityActive = false;
     state.wasShowtimeActive = false;
     if (state.crowdMessageTimeout) clearTimeout(state.crowdMessageTimeout);
     state.crowdMessageTimeout = null;
+    state.crowdVisuals.lastDominanceBucket = null;
+    state.crowdVisuals.lastReactionTime = 0;
+    if (state.crowdVisuals.reactionTimer) clearTimeout(state.crowdVisuals.reactionTimer);
+    state.crowdVisuals.reactionTimer = null;
+    if (els.crowdLightsContainer) {
+        els.crowdLightsContainer.classList.add('crowd-intro-muted');
+        els.crowdLightsContainer.classList.remove(
+            'crowd-wave-red',
+            'crowd-wave-blue',
+            'crowd-reaction-soft',
+            'crowd-reaction-strong',
+            'crowd-reaction-showtime'
+        );
+    }
 
     const msgEl = document.getElementById('crowd-event-message');
     if (msgEl) {
@@ -826,6 +865,9 @@ function startGameplay() {
         console.log("Intro video ended. Starting song and gameplay.");
         els.bgVideo.removeEventListener('ended', onIntroVideoEnded);
         state.introEndedListener = null;
+        if (els.crowdLightsContainer) {
+            els.crowdLightsContainer.classList.remove('crowd-intro-muted');
+        }
         
         // Switch to looping instrument video
         let videoSrc = "assets/videos/Rocker_shreds_guitar_solo_stage_202606151550.mp4";
@@ -1036,6 +1078,9 @@ function processHit(laneIndex) {
     if (!targetNote) {
         // Miss hit (strumming with no notes)
         spawnEmptyHitParticle(laneIndex);
+        if (state.currentScreen === 'game-screen') {
+            triggerWrongInput(laneIndex);
+        }
         return;
     }
     
@@ -1050,6 +1095,9 @@ function processHit(laneIndex) {
     } else if (currentAudioTime < targetNote.time - GAME_CFG.hitWindowOk) {
         // Too early hit, ignore or slight miss penalty
         spawnEmptyHitParticle(laneIndex);
+        if (state.currentScreen === 'game-screen') {
+            triggerWrongInput(laneIndex);
+        }
     }
 }
 
@@ -1086,6 +1134,9 @@ function triggerHit(note, precision) {
     // Combo increment
     state.combo++;
     if (state.combo > state.maxCombo) state.maxCombo = state.combo;
+    if (state.combo > 0 && state.combo % 10 === 0) {
+        triggerCrowdReaction('red', state.combo >= 40 ? 'strong' : 'medium');
+    }
     
     // Charge Special meter (Individual ability: Destaque Individual)
     let chargeSpeed = 1.5; // good default (Good: +1.5%)
@@ -1199,6 +1250,83 @@ function triggerMiss(note) {
     
     updateComboUI();
     calculateAccuracy();
+    triggerCrowdReaction('blue', 'soft');
+
+    // Shake visual local para Miss (com cooldown de 100ms)
+    const now = performance.now();
+    if (!state.lastMissShakeTime || (now - state.lastMissShakeTime >= 100)) {
+        state.lastMissShakeTime = now;
+
+        const targetEl = laneKeys[note.lane].targetEl;
+        if (targetEl) {
+            targetEl.classList.remove('wrong-input-shake');
+            void targetEl.offsetWidth; // force reflow
+            targetEl.classList.add('wrong-input-shake');
+
+            setTimeout(() => {
+                targetEl.classList.remove('wrong-input-shake');
+            }, 150);
+        }
+    }
+}
+
+function triggerWrongInput(lane) {
+    const now = performance.now();
+    // Cooldown anti-burst de 80ms para evitar punição multiplicada ao bater de uma vez
+    if (state.lastWrongInputTime && (now - state.lastWrongInputTime < 80)) {
+        return;
+    }
+    state.lastWrongInputTime = now;
+
+    if (DEBUG_DEMO_BATTLE) {
+        console.log(`Wrong input: lane ${lane}`);
+    }
+
+    // Quebra imediata do combo
+    state.combo = 0;
+
+    let specialPenalty = 5; // 5% de penalidade
+    let bandPenalty = 2; // 2% de penalidade
+    let pullFactor = 1.5; // Puxão leve para a rival
+
+    // Parede Sonora atenua danos
+    if (state.specialActive) {
+        const ability = getCurrentInstrumentAbility();
+        if (state.selectedClass === 'rhythm') {
+            pullFactor *= (ability.missDominancePenaltyMultiplier || 1.0);
+            specialPenalty *= (ability.missEnergyPenaltyMultiplier || 1.0);
+            bandPenalty *= (ability.missEnergyPenaltyMultiplier || 1.0);
+        }
+    }
+
+    if (!state.specialActive) {
+        state.specialEnergy = Math.max(0, state.specialEnergy - specialPenalty);
+        updateSpecialUI();
+    }
+
+    if (!state.bandShowtimeActive) {
+        state.bandEnergy = Math.max(0, state.bandEnergy - bandPenalty);
+        updateBandSpecialUI();
+    }
+
+    adjustDominance(-pullFactor);
+    updateComboUI();
+    calculateAccuracy();
+
+    showRhythmFeedback('wrong');
+
+    // Shake visual local
+    const targetEl = laneKeys[lane].targetEl;
+    if (targetEl) {
+        targetEl.classList.remove('wrong-input-shake');
+        void targetEl.offsetWidth; // force reflow
+        targetEl.classList.add('wrong-input-shake');
+
+        setTimeout(() => {
+            targetEl.classList.remove('wrong-input-shake');
+        }, 150);
+    }
+    triggerCrowdReaction('blue', 'soft');
 }
 
 function triggerSpecialSkill() {
@@ -1234,6 +1362,7 @@ function triggerSpecialSkill() {
     if (typeof showCrowdEventMessage === 'function') {
         showCrowdEventMessage(ability.message, 'gold', true);
     }
+    triggerCrowdReaction('red', 'strong', true);
 
     // Smooth transition to full band video
     els.specialVideo.style.display = 'block';
@@ -1288,6 +1417,7 @@ function triggerBandShowtime() {
     if (DEBUG_DEMO_BATTLE) {
         console.log("Band Showtime activated");
     }
+    triggerCrowdReaction('red', 'showtime', true);
 
     // Show banner in HUD
     els.skillOverlay.classList.add('active');
@@ -1524,6 +1654,116 @@ function adjustDominance(amount) {
     updateTugOfWarUI();
 }
 
+function initializeCrowdSystem() {
+    if (
+        state.crowdVisuals.initialized ||
+        !els.crowdLightsContainer ||
+        !els.crowdSilhouetteLayer ||
+        !els.crowdLightsticksLayer
+    ) {
+        return;
+    }
+
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const compactViewport = window.innerWidth < 900;
+    state.crowdVisuals.lowQuality = reducedMotion || compactViewport;
+    els.crowdLightsContainer.classList.toggle('crowd-quality-low', state.crowdVisuals.lowQuality);
+
+    const peopleCount = state.crowdVisuals.lowQuality ? 24 : 42;
+    const stickCount = state.crowdVisuals.lowQuality ? 30 : 58;
+    const peopleFragment = document.createDocumentFragment();
+    const sticksFragment = document.createDocumentFragment();
+
+    for (let index = 0; index < peopleCount; index++) {
+        const person = document.createElement('span');
+        person.className = 'crowd-person';
+        person.style.setProperty('--person-x', `${2 + ((index * 37) % 96)}%`);
+        person.style.setProperty('--person-bottom', `${(index * 13) % 18}px`);
+        person.style.setProperty('--person-scale', `${0.68 + ((index * 17) % 34) / 100}`);
+        person.style.setProperty('--person-delay', `${-((index * 19) % 24) / 10}s`);
+        person.style.setProperty('--person-speed', `${2.4 + ((index * 11) % 15) / 10}s`);
+        peopleFragment.appendChild(person);
+    }
+
+    for (let index = 0; index < stickCount; index++) {
+        const stick = document.createElement('span');
+        stick.className = 'crowd-lightstick';
+        stick.dataset.bias = String((index * 43) % 100);
+        stick.style.setProperty('--stick-x', `${1 + ((index * 29) % 98)}%`);
+        stick.style.setProperty('--stick-bottom', `${10 + ((index * 17) % 92)}px`);
+        stick.style.setProperty('--stick-height', `${22 + ((index * 13) % 34)}px`);
+        stick.style.setProperty('--stick-delay', `${-((index * 23) % 30) / 10}s`);
+        stick.style.setProperty('--stick-speed', `${1.5 + ((index * 7) % 15) / 10}s`);
+        sticksFragment.appendChild(stick);
+    }
+
+    els.crowdSilhouetteLayer.appendChild(peopleFragment);
+    els.crowdLightsticksLayer.appendChild(sticksFragment);
+    state.crowdVisuals.initialized = true;
+    updateCrowdSystem();
+}
+
+function updateCrowdSystem() {
+    if (!state.crowdVisuals.initialized || !els.crowdLightsContainer) return;
+
+    const dominance = Math.max(0, Math.min(100, state.crowdDominance));
+    const bucket = Math.round(dominance / 5) * 5;
+    const comboActivity = Math.min(1, state.combo / 40);
+    const activity = state.bandShowtimeActive ? 1 : state.specialActive ? 0.85 : 0.45 + comboActivity * 0.35;
+
+    els.crowdLightsContainer.style.setProperty('--crowd-divider', `${dominance}%`);
+    els.crowdLightsContainer.style.setProperty('--crowd-activity', activity.toFixed(2));
+    els.crowdLightsContainer.style.setProperty('--crowd-stick-opacity', (0.45 + activity * 0.52).toFixed(2));
+    els.crowdLightsContainer.style.setProperty('--crowd-glow-opacity', (0.45 + activity * 0.38).toFixed(2));
+    els.crowdLightsContainer.classList.toggle('crowd-active', state.currentScreen === 'game-screen');
+    els.crowdLightsContainer.classList.toggle('crowd-dominating', dominance >= 65 || dominance <= 35);
+
+    if (bucket === state.crowdVisuals.lastDominanceBucket) return;
+    state.crowdVisuals.lastDominanceBucket = bucket;
+
+    const sticks = els.crowdLightsticksLayer.querySelectorAll('.crowd-lightstick');
+    sticks.forEach(stick => {
+        const bias = Number(stick.dataset.bias);
+        stick.dataset.team = bias < dominance ? 'red' : 'blue';
+    });
+}
+
+function triggerCrowdReaction(side, intensity = 'medium', force = false) {
+    if (!state.crowdVisuals.initialized || !els.crowdLightsContainer) return;
+
+    const now = performance.now();
+    const minimumGap = intensity === 'showtime' ? 0 : 320;
+    if (!force && now - state.crowdVisuals.lastReactionTime < minimumGap) return;
+    state.crowdVisuals.lastReactionTime = now;
+
+    const root = els.crowdLightsContainer;
+    const sideClass = side === 'blue' ? 'crowd-wave-blue' : 'crowd-wave-red';
+    root.classList.remove(
+        'crowd-wave-red',
+        'crowd-wave-blue',
+        'crowd-reaction-soft',
+        'crowd-reaction-strong',
+        'crowd-reaction-showtime'
+    );
+    void root.offsetWidth;
+    root.classList.add(sideClass, `crowd-reaction-${intensity}`);
+
+    if (state.crowdVisuals.reactionTimer) {
+        clearTimeout(state.crowdVisuals.reactionTimer);
+    }
+    const duration = intensity === 'showtime' ? 900 : intensity === 'strong' ? 700 : 520;
+    state.crowdVisuals.reactionTimer = setTimeout(() => {
+        root.classList.remove(
+            'crowd-wave-red',
+            'crowd-wave-blue',
+            'crowd-reaction-soft',
+            'crowd-reaction-strong',
+            'crowd-reaction-showtime'
+        );
+        state.crowdVisuals.reactionTimer = null;
+    }, duration);
+}
+
 function updateTugOfWarUI() {
     // 100 is Player/Red (Jax's Band), 0 is Rival/Blue (Shred Rivals).
     // Red (Player) is on the left (0%), Blue (Rival) is on the right (100%).
@@ -1564,7 +1804,15 @@ function updateArenaVisuals() {
     
     if (state.currentScreen !== 'game-screen' && !window.RAArenaVisualDebugActive) {
         els.arenaReactionLayer.className = '';
-        els.crowdLightsContainer.className = '';
+        els.crowdLightsContainer.classList.remove(
+            'crowd-active',
+            'red-winning',
+            'blue-winning',
+            'balanced',
+            'special-active',
+            'showtime-active',
+            'crowd-dominating'
+        );
         return;
     }
 
@@ -1572,7 +1820,13 @@ function updateArenaVisuals() {
 
     // Remove status classes first
     els.arenaReactionLayer.classList.remove('red-winning', 'red-dominating', 'blue-winning', 'blue-dominating', 'balanced', 'special-active', 'showtime-active');
-    els.crowdLightsContainer.classList.remove('red-winning', 'blue-winning', 'showtime-active');
+    els.crowdLightsContainer.classList.remove(
+        'red-winning',
+        'blue-winning',
+        'balanced',
+        'special-active',
+        'showtime-active'
+    );
     
     let newSide = 'neutral';
     if (state.crowdDominance >= 55) newSide = 'player';
@@ -1595,6 +1849,7 @@ function updateArenaVisuals() {
         visualStateLog = 'showtime';
     } else if (state.specialActive) {
         els.arenaReactionLayer.classList.add('special-active');
+        els.crowdLightsContainer.classList.add('special-active');
         visualStateLog = 'special';
     } else {
         if (state.crowdDominance >= 65) {
@@ -1615,9 +1870,12 @@ function updateArenaVisuals() {
             visualStateLog = 'blue-winning';
         } else {
             els.arenaReactionLayer.classList.add('balanced');
+            els.crowdLightsContainer.classList.add('balanced');
             visualStateLog = 'balanced';
         }
     }
+
+    updateCrowdSystem();
 
     if (DEBUG_DEMO_BATTLE && state.lastVisualStateLogged !== visualStateLog) {
         console.log("Arena visual state: " + visualStateLog);
@@ -1633,6 +1891,7 @@ function triggerReactionPulse(color) {
     els.arenaReactionLayer.classList.remove('reaction-pulse-red', 'reaction-pulse-blue');
     void els.arenaReactionLayer.offsetWidth; // trigger reflow
     els.arenaReactionLayer.classList.add(pulseClass);
+    triggerCrowdReaction(color, 'strong', true);
 
     // Camera shake on background
     if (els.videoBgContainer) {
@@ -1818,6 +2077,9 @@ function showRhythmFeedback(type) {
     } else if (type === 'shield') {
         els.rhythmFeedback.innerText = "ESCUDADO!";
         els.rhythmFeedback.classList.add('feedback-perfect');
+    } else if (type === 'wrong') {
+        els.rhythmFeedback.innerText = "ERRO!";
+        els.rhythmFeedback.classList.add('feedback-miss');
     }
     
     // Hide feedback text after duration
@@ -2771,7 +3033,11 @@ window.RAArenaVisualDebug = {
         state.specialActive = false;
         state.bandShowtimeActive = false;
         if (els.arenaReactionLayer) els.arenaReactionLayer.className = '';
-        if (els.crowdLightsContainer) els.crowdLightsContainer.className = '';
+        if (els.crowdLightsContainer) {
+            els.crowdLightsContainer.className = 'crowd-system';
+            els.crowdLightsContainer.classList.toggle('crowd-quality-low', state.crowdVisuals.lowQuality);
+            updateCrowdSystem();
+        }
         console.log("Cleared debug visuals");
     }
 };
@@ -2908,4 +3174,5 @@ function menuGamepadLoop(timestamp) {
 }
 
 // Inicializar
+initializeCrowdSystem();
 requestAnimationFrame(menuGamepadLoop);
